@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+.venv/
+venv/
+.env
+.env.*
+
+# Build PyInstaller
+build/
+dist/
+*.spec
+build_exe.log
+
+# Application data / private documents
+*.rag.json
+*.pdf
+*.log
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

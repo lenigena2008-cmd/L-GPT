@@ -1,0 +1,182 @@
+119 INFO: PyInstaller: 6.22.3, contrib hooks: 2026.10
+119 INFO: Python: 3.14.7
+147 INFO: Platform: Windows-11-10.0.26300-SP0
+147 INFO: Python environment: C:\Users\lenig\Downloads\L-GPT_GitHub_Pret\L-GPT\.venv
+148 INFO: wrote C:\Users\lenig\Downloads\L-GPT_GitHub_Pret\L-GPT\L-GPT.spec
+150 INFO: Removing temporary files and cleaning cache in C:\Users\lenig\AppData\Local\pyinstaller
+4605 INFO: Module search paths (PYTHONPATH):
+['C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT',
+ 'C:\\Users\\lenig\\AppData\\Local\\Programs\\Python\\Python314\\python314.zip',
+ 'C:\\Users\\lenig\\AppData\\Local\\Programs\\Python\\Python314\\DLLs',
+ 'C:\\Users\\lenig\\AppData\\Local\\Programs\\Python\\Python314\\Lib',
+ 'C:\\Users\\lenig\\AppData\\Local\\Programs\\Python\\Python314',
+ 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv',
+ 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages',
+ 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT']
+4973 INFO: Appending 'binaries' from .spec
+4974 INFO: Appending 'datas' from .spec
+4996 INFO: checking Analysis
+4996 INFO: Building Analysis because Analysis-00.toc is non existent
+4996 INFO: Looking for Python shared library...
+4996 INFO: Using Python shared library: C:\Users\lenig\AppData\Local\Programs\Python\Python314\python314.dll
+4996 INFO: Running Analysis Analysis-00.toc
+4996 INFO: Target bytecode optimization level: 0
+4996 INFO: Initializing module dependency graph...
+4997 INFO: Initializing module graph hook caches...
+5008 INFO: Analyzing modules for base_library.zip ...
+7150 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+7859 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+8256 INFO: Processing standard module hook 'hook-math.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+8464 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+8483 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+12963 INFO: Caching module dependency graph...
+13031 INFO: Analyzing C:\Users\lenig\Downloads\L-GPT_GitHub_Pret\L-GPT\main.py
+13221 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+13286 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+13296 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+13313 INFO: Processing standard module hook 'hook-anyio.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+13817 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+13820 INFO: SetuptoolsInfo: initializing cached setuptools info...
+14843 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+14999 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+16919 INFO: Processing standard module hook 'hook-pydantic.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+18265 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+20643 INFO: Processing standard module hook 'hook-certifi.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+21563 INFO: Processing standard module hook 'hook-PySide6.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+22050 INFO: Processing standard module hook 'hook-shiboken6.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+22609 INFO: Processing standard module hook 'hook-PySide6.QtNetwork.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+28808 INFO: Processing standard module hook 'hook-PySide6.QtCore.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+38658 INFO: Processing standard module hook 'hook-PySide6.QtGui.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+82819 INFO: Processing standard module hook 'hook-PySide6.QtWidgets.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+92314 INFO: Processing standard module hook 'hook-numpy.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+94013 INFO: Processing standard module hook 'hook-webbrowser.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+96864 INFO: Processing standard module hook 'hook-psutil.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+97540 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+100373 INFO: Processing standard module hook 'hook-pymupdf.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+103495 INFO: Processing standard module hook 'hook-PIL.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+103717 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+104299 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+104663 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+106179 INFO: Processing standard module hook 'hook-reportlab.lib.utils.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+106409 INFO: Processing standard module hook 'hook-reportlab.pdfbase._fontdata.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+110516 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+110663 INFO: Analyzing hidden import 'fitz'
+110668 INFO: Analyzing hidden import 'pymupdf.__main__'
+110773 INFO: Analyzing hidden import 'pymupdf._features'
+110774 INFO: Analyzing hidden import 'pymupdf._tgif'
+110776 INFO: Analyzing hidden import 'pymupdf.features'
+110803 INFO: Analyzing hidden import 'pymupdf.layout'
+110966 INFO: Processing standard module hook 'hook-onnxruntime.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+111252 INFO: Processing pre-safe-import-module hook 'hook-tensorflow.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\pre_safe_import_module'
+112150 INFO: Analyzing hidden import 'pymupdf.layout.onnx.LayoutProbAnalyzer'
+112175 INFO: Analyzing hidden import 'pymupdf.mupdf_info'
+112182 INFO: Analyzing hidden import 'pymupdf.show_features'
+112193 INFO: Analyzing hidden import 'pymupdf.tgif'
+112200 INFO: Analyzing hidden import 'reportlab.graphics.barcode'
+112457 INFO: Analyzing hidden import 'reportlab.graphics.barcode.code128'
+112502 INFO: Analyzing hidden import 'reportlab.graphics.barcode.code39'
+112513 INFO: Analyzing hidden import 'reportlab.graphics.barcode.code93'
+112524 INFO: Analyzing hidden import 'reportlab.graphics.barcode.ecc200datamatrix'
+112578 INFO: Analyzing hidden import 'reportlab.graphics.barcode.fourstate'
+112582 INFO: Analyzing hidden import 'reportlab.graphics.barcode.lto'
+112594 INFO: Analyzing hidden import 'reportlab.graphics.barcode.test'
+112659 INFO: Analyzing hidden import 'reportlab.graphics.charts.axes'
+112897 INFO: Analyzing hidden import 'reportlab.graphics.charts.barcharts'
+113076 INFO: Analyzing hidden import 'reportlab.graphics.charts.dotbox'
+113234 INFO: Analyzing hidden import 'reportlab.graphics.charts.doughnut'
+113258 INFO: Analyzing hidden import 'reportlab.graphics.charts.markers'
+113261 INFO: Analyzing hidden import 'reportlab.graphics.charts.slidebox'
+113271 INFO: Analyzing hidden import 'reportlab.graphics.charts.spider'
+113316 INFO: Analyzing hidden import 'reportlab.graphics.samples'
+113319 INFO: Analyzing hidden import 'reportlab.graphics.samples.bubble'
+113337 INFO: Analyzing hidden import 'reportlab.graphics.samples.clustered_bar'
+113342 INFO: Analyzing hidden import 'reportlab.graphics.samples.clustered_column'
+113348 INFO: Analyzing hidden import 'reportlab.graphics.samples.exploded_pie'
+113352 INFO: Analyzing hidden import 'reportlab.graphics.samples.filled_radar'
+113356 INFO: Analyzing hidden import 'reportlab.graphics.samples.line_chart'
+113362 INFO: Analyzing hidden import 'reportlab.graphics.samples.linechart_with_markers'
+113368 INFO: Analyzing hidden import 'reportlab.graphics.samples.radar'
+113373 INFO: Analyzing hidden import 'reportlab.graphics.samples.runall'
+113377 INFO: Analyzing hidden import 'reportlab.graphics.samples.scatter'
+113386 INFO: Analyzing hidden import 'reportlab.graphics.samples.scatter_lines'
+113400 INFO: Analyzing hidden import 'reportlab.graphics.samples.scatter_lines_markers'
+113413 INFO: Analyzing hidden import 'reportlab.graphics.samples.simple_pie'
+113422 INFO: Analyzing hidden import 'reportlab.graphics.samples.stacked_bar'
+113443 INFO: Analyzing hidden import 'reportlab.graphics.samples.stacked_column'
+113452 INFO: Analyzing hidden import 'reportlab.graphics.svgpath'
+113501 INFO: Analyzing hidden import 'reportlab.graphics.testdrawings'
+113506 INFO: Analyzing hidden import 'reportlab.graphics.widgets.adjustableArrow'
+113517 INFO: Analyzing hidden import 'reportlab.graphics.widgets.eventcal'
+113540 INFO: Analyzing hidden import 'reportlab.graphics.widgets.table'
+113552 INFO: Analyzing hidden import 'reportlab.lib.codecharts'
+113662 INFO: Analyzing hidden import 'reportlab.lib.fontfinder'
+113687 INFO: Analyzing hidden import 'reportlab.lib.pygments2xpre'
+113695 INFO: Analyzing hidden import 'reportlab.lib.testutils'
+113788 INFO: Analyzing hidden import 'reportlab.lib.yaml'
+113795 INFO: Analyzing hidden import 'reportlab.pdfbase._can_cmap_data'
+113800 INFO: Analyzing hidden import 'reportlab.pdfbase.pdfform'
+113845 INFO: Analyzing hidden import 'reportlab.platypus.figures'
+113896 INFO: Analyzing hidden import 'reportlab.platypus.para'
+114055 INFO: Analyzing hidden import 'reportlab.platypus.tableofcontents'
+114095 INFO: Analyzing hidden import 'reportlab.rl_settings'
+114100 INFO: Processing module hooks (post-graph stage)...
+114791 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+114791 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
+114800 INFO: Processing standard module hook 'hook-setuptools.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+114816 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+114882 INFO: Processing pre-safe-import-module hook 'hook-jaraco.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+114882 INFO: Setuptools: 'jaraco' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco'!
+114898 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+114899 INFO: Setuptools: 'more_itertools' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.more_itertools'!
+115178 INFO: Processing standard module hook 'hook-_osx_support.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+115269 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+115916 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+115919 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+115935 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+115936 INFO: Setuptools: 'backports' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.backports'!
+118017 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+118018 INFO: Setuptools: 'wheel' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.wheel'!
+118269 WARNING: Hidden import "tzdata" not found!
+118754 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+119710 INFO: Performing binary vs. data reclassification (533 entries)
+119851 INFO: Looking for ctypes DLLs
+119979 INFO: Analyzing run-time hooks ...
+119988 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+119992 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+119996 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+120002 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+120005 INFO: Including run-time hook 'pyi_rth_pyside6.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+120010 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+120013 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+120065 INFO: Creating base_library.zip...
+120104 INFO: Looking for dynamic libraries
+C:\Users\lenig\Downloads\L-GPT_GitHub_Pret\L-GPT\.venv\Lib\site-packages\fitz\__init__.py:17: FutureWarning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+  warnings.warn(
+122784 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\shiboken6', 'C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\numpy.libs']
+122784 INFO: Extra DLL search directories (PATH): ['C:\\Users\\lenig\\Downloads\\L-GPT_GitHub_Pret\\L-GPT\\.venv\\Lib\\site-packages\\PySide6']
+125782 INFO: Warnings written to C:\Users\lenig\Downloads\L-GPT_GitHub_Pret\L-GPT\build\L-GPT\warn-L-GPT.txt
+125936 INFO: Graph cross-reference written to C:\Users\lenig\Downloads\L-GPT_GitHub_Pret\L-GPT\build\L-GPT\xref-L-GPT.html
+126019 INFO: checking PYZ
+126019 INFO: Building PYZ because PYZ-00.toc is non existent
+126019 INFO: Building PYZ (ZlibArchive) C:\Users\lenig\Downloads\L-GPT_GitHub_Pret\L-GPT\build\L-GPT\PYZ-00.pyz
+127242 INFO: Building PYZ (ZlibArchive) C:\Users\lenig\Downloads\L-GPT_GitHub_Pret\L-GPT\build\L-GPT\PYZ-00.pyz completed successfully.
+127277 INFO: checking PKG
+127277 INFO: Building PKG because PKG-00.toc is non existent
+127277 INFO: Building PKG (CArchive) L-GPT.pkg
+127340 INFO: Building PKG (CArchive) L-GPT.pkg completed successfully.
+127343 INFO: Bootloader C:\Users\lenig\Downloads\L-GPT_GitHub_Pret\L-GPT\.venv\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+127343 INFO: checking EXE
+127343 INFO: Building EXE because EXE-00.toc is non existent
+127343 INFO: Building EXE from EXE-00.toc
+127343 INFO: Copying bootloader EXE to C:\Users\lenig\Downloads\L-GPT_GitHub_Pret\L-GPT\build\L-GPT\L-GPT.exe
+127352 INFO: Copying icon to EXE
+127358 INFO: Copying 0 resources to EXE
+127358 INFO: Embedding manifest in EXE
+127364 INFO: Appending PKG archive to EXE
+127380 INFO: Fixing EXE headers
+127545 INFO: Building EXE from EXE-00.toc completed successfully.
+127555 INFO: checking COLLECT
+127555 INFO: Building COLLECT because COLLECT-00.toc is non existent
+127556 INFO: Building COLLECT COLLECT-00.toc
+129052 INFO: Building COLLECT COLLECT-00.toc completed successfully.
+129075 INFO: Build complete! The results are available in: C:\Users\lenig\Downloads\L-GPT_GitHub_Pret\L-GPT\dist

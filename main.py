@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QListWidget, QListWidgetItem, QToolButton, QGraphicsDropShadowEffect
 )
 
-from core.pdf_engine import answer, build_indexes, create_summary_pdf
+from core.pdf_engine import answer_chat, build_indexes, create_summary_pdf
 
 APP_NAME = "L-GPT"
 FALLBACK_MODELS = ["qwen3.8:27b", "qwen3.5:9b", "qwen3.5:4b"]
@@ -150,20 +150,20 @@ class SummaryWorker(QObject):
 
 class ChatWorker(QObject):
     token = Signal(str)
-    finished = Signal(str, object, object)
+    finished = Signal(str, object, object, str)
     failed = Signal(str)
-    def __init__(self, question, chunks, embeddings, history, model, stop_event):
+    def __init__(self, question, chunks, embeddings, history, model, mode, stop_event):
         super().__init__()
         self.question, self.chunks = question, chunks
         self.embeddings, self.history, self.model = embeddings, history, model
-        self.stop_event = stop_event
+        self.mode, self.stop_event = mode, stop_event
     def run(self):
         try:
-            response, sources, history = answer(
+            response, sources, history, source_mode = answer_chat(
                 self.question, self.chunks, self.embeddings,
-                self.history, self.model, self.token.emit, self.stop_event
+                self.history, self.model, self.mode, self.token.emit, self.stop_event
             )
-            self.finished.emit(response, sources, history)
+            self.finished.emit(response, sources, history, source_mode)
         except Exception as exc:
             message = str(exc)
             lowered = message.lower()
@@ -221,7 +221,7 @@ class ChatMessageBrowser(QTextBrowser):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("L-GPT | Assistant IA local")
+        self.setWindowTitle("L-GPT 2.6 | Assistant IA local")
         self.resize(1440, 920)
         self.setMinimumSize(1050, 700)
         self.setWindowIcon(QIcon(str(Path(__file__).parent / "assets" / "lgpt.ico")))
@@ -313,6 +313,7 @@ class MainWindow(QMainWindow):
         top = QHBoxLayout()
         self.page_title = QLabel("Votre espace intelligent"); self.page_title.setObjectName("pageTitle")
         top.addWidget(self.page_title); top.addStretch()
+        self.mode_combo = QComboBox(); self.mode_combo.addItems(["Intelligent", "Document", "Connaissances"]); self.mode_combo.setCurrentText("Intelligent"); self.mode_combo.setToolTip("Choisis la source des réponses. Intelligent sélectionne automatiquement la meilleure approche."); self.mode_combo.setMinimumWidth(175); top.addWidget(self.mode_combo)
         self.status = QLabel("●  PRÊT"); self.status.setObjectName("status"); top.addWidget(self.status)
         main.addLayout(top)
 
@@ -335,7 +336,7 @@ class MainWindow(QMainWindow):
         shadow = QGraphicsDropShadowEffect(composer); shadow.setBlurRadius(28); shadow.setOffset(0,5); shadow.setColor(QColor(0, 0, 0, 150))
         composer.setGraphicsEffect(shadow)
         compose = QHBoxLayout(composer); compose.setContentsMargins(15,8,10,8); compose.setSpacing(10)
-        self.input = QTextEdit(objectName="input"); self.input.setPlaceholderText("Pose une question sur ton document...")
+        self.input = QTextEdit(objectName="input"); self.input.setPlaceholderText("Pose une question à L-GPT, avec ou sans PDF...")
         self.input.setFixedHeight(60); self.input.setMaximumHeight(130); self.input.setAcceptRichText(False)
         self.input.installEventFilter(self)
         compose.addWidget(self.input,1)
@@ -359,12 +360,12 @@ class MainWindow(QMainWindow):
         lay.addWidget(orb,0,Qt.AlignmentFlag.AlignHCenter)
         eyebrow = QLabel("VOTRE ASSISTANT IA PERSONNEL"); eyebrow.setObjectName("section"); eyebrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title = QLabel("Bienvenue sur L-GPT"); title.setObjectName("heroTitle"); title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        subtitle = QLabel("Une intelligence locale pour comprendre, explorer et apprendre."); subtitle.setObjectName("heroSubtitle"); subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        subtitle = QLabel("Un assistant local pour tes cours, tes documents et toutes tes questions."); subtitle.setObjectName("heroSubtitle"); subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(eyebrow); lay.addWidget(title); lay.addWidget(subtitle); lay.addSpacing(15)
         cards = QHBoxLayout(); cards.setSpacing(12)
         suggestions = [
-            ("✦  Comprendre", "Explique-moi les notions essentielles de ce document."),
-            ("⌕  Rechercher", "Retrouve les informations les plus importantes du document."),
+            ("✦  Comprendre", "Explique-moi simplement la différence entre une IA et un modèle de langage."),
+            ("⌕  Explorer un cours", "Explique-moi les notions essentielles de mon document."),
             ("▤  Synthétiser", "Fais une synthèse structurée de ce document."),
         ]
         for heading, prompt in suggestions:
@@ -586,7 +587,7 @@ class MainWindow(QMainWindow):
             self._start_indexing(self.pdf_paths)
         else:
             self.doc_name.setText("Aucun document importé"); self.doc_card_name.setText("Aucun document sélectionné")
-            self.index_label.setText("Réimporte les PDF nécessaires pour poursuivre cette discussion")
+            self.index_label.setText("Aucun PDF associé · les questions générales restent disponibles")
         self.page_title.setText(self.current_title); self._clear_chat()
         for msg in self.transcript:
             self.add_message(msg.get("content", ""), "user" if msg.get("role") == "user" else "assistant")
@@ -666,8 +667,8 @@ class MainWindow(QMainWindow):
         if self.busy: return
         question = self.input.toPlainText().strip()
         if not question: return
-        if self.chunks is None or self.embeddings is None:
-            QMessageBox.information(self,"Ajoute un document","Importe un PDF et attends la fin de son indexation avant de poser une question."); return
+        if self.index_thread is not None:
+            QMessageBox.information(self,"Indexation en cours","Attends la fin de l’indexation avant de poser ta question."); return
         self.input.clear(); self.page_title.setText(question[:48] + ("…" if len(question)>48 else ""))
         self.add_message(question,"user"); self.assistant_browser = self.add_message("", "assistant"); self.stream_text = ""
         self.transcript.append({"role": "user", "content": question})
@@ -676,7 +677,7 @@ class MainWindow(QMainWindow):
         self.chat_stop_event = Event()
         self.input.setEnabled(False); self.import_button.setEnabled(False)
         self.status.setText("◌  L-GPT RÉFLÉCHIT"); self.status.setObjectName("statusBusy"); self.status.style().unpolish(self.status); self.status.style().polish(self.status)
-        self.chat_thread = QThread(); self.chat_worker = ChatWorker(question,self.chunks,self.embeddings,list(self.history),self.model_combo.currentText(),self.chat_stop_event)
+        self.chat_thread = QThread(); self.chat_worker = ChatWorker(question,self.chunks or [],self.embeddings or [],list(self.history),self.model_combo.currentText(),self.mode_combo.currentText(),self.chat_stop_event)
         self.chat_worker.moveToThread(self.chat_thread); self.chat_thread.started.connect(self.chat_worker.run)
         self.chat_worker.token.connect(self.on_token); self.chat_worker.finished.connect(self.on_answer_finished); self.chat_worker.failed.connect(self.on_answer_error)
         self.chat_worker.finished.connect(self.chat_thread.quit); self.chat_worker.failed.connect(self.chat_thread.quit)
@@ -692,9 +693,9 @@ class MainWindow(QMainWindow):
     def on_token(self, token):
         self.stream_text += token; self.assistant_browser.set_chat_markdown(self.stream_text); self.scroll_bottom()
 
-    def on_answer_finished(self, response, sources, history):
+    def on_answer_finished(self, response, sources, history, source_mode):
         self.history = history
-        text = response
+        text = response + f"\n\n---\n*Source utilisée : **{source_mode}***"
         if sources:
             text += "\n\n---\n\n### Sources du document\n"
             for source in sources:

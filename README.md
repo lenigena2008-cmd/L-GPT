@@ -37,3 +37,6 @@ Cette version utilise `num_ctx=2048` pour les questions et la génération des r
 
 ## Historique des conversations
 Le bouton « Nouvelle conversation » archive l'échange actuel dans la liste « Récent » et réinitialise le fil. Les conversations sont conservées pendant la session de l'application ; elles ne sont pas encore enregistrées après fermeture.
+
+## Formules dans les PDF générés
+Les consignes de génération interdisent le LaTeX. Les formules doivent être écrites en notation texte lisible (par exemple `(a)/(b)`, `x^2`, `×`, `√(...)`). Le moteur nettoie également plusieurs commandes LaTeX fréquentes avant la mise en page du PDF.

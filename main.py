@@ -221,7 +221,7 @@ class ChatMessageBrowser(QTextBrowser):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("L-GPT 2.6 | Assistant IA local")
+        self.setWindowTitle("L-GPT 2.7 | Assistant IA local")
         self.resize(1440, 920)
         self.setMinimumSize(1050, 700)
         self.setWindowIcon(QIcon(str(Path(__file__).parent / "assets" / "lgpt.ico")))

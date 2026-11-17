@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import sys
+import os
+import sqlite3
+import uuid
+import json
 from pathlib import Path
 from datetime import datetime
 
@@ -19,6 +23,52 @@ from core.pdf_engine import answer, build_indexes, create_summary_pdf
 APP_NAME = "L-GPT"
 FALLBACK_MODELS = ["qwen3.8:27b", "qwen3.5:9b", "qwen3.5:4b"]
 EMBEDDING_MODEL_NAMES = {"nomic-embed-text", "nomic-embed-text:latest"}
+
+def data_directory() -> Path:
+    """Dossier de données persistant, indépendant du dossier de l'application."""
+    base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    folder = base / "L-GPT"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+class ConversationStore:
+    """Stockage SQLite local des conversations L-GPT."""
+    def __init__(self):
+        self.path = data_directory() / "conversations.db"
+        with sqlite3.connect(self.path) as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS conversations (
+                id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL, messages TEXT NOT NULL, pdf_paths TEXT NOT NULL DEFAULT '[]'
+            )""")
+            db.commit()
+
+    def save(self, conversation_id, title, messages, pdf_paths):
+        now = datetime.now().isoformat(timespec="seconds")
+        with sqlite3.connect(self.path) as db:
+            existing = db.execute("SELECT created_at FROM conversations WHERE id=?", (conversation_id,)).fetchone()
+            created = existing[0] if existing else now
+            db.execute("""INSERT INTO conversations(id,title,created_at,updated_at,messages,pdf_paths)
+                VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
+                title=excluded.title, updated_at=excluded.updated_at,
+                messages=excluded.messages, pdf_paths=excluded.pdf_paths""",
+                (conversation_id, title, created, now, json.dumps(messages, ensure_ascii=False), json.dumps(pdf_paths, ensure_ascii=False)))
+            db.commit()
+
+    def list(self):
+        with sqlite3.connect(self.path) as db:
+            rows = db.execute("SELECT id,title,updated_at FROM conversations ORDER BY updated_at DESC").fetchall()
+        return [{"id": r[0], "title": r[1], "updated_at": r[2]} for r in rows]
+
+    def load(self, conversation_id):
+        with sqlite3.connect(self.path) as db:
+            row = db.execute("SELECT title,messages,pdf_paths FROM conversations WHERE id=?", (conversation_id,)).fetchone()
+        if not row: return None
+        return {"title": row[0], "messages": json.loads(row[1]), "pdf_paths": json.loads(row[2])}
+
+    def delete(self, conversation_id):
+        with sqlite3.connect(self.path) as db:
+            db.execute("DELETE FROM conversations WHERE id=?", (conversation_id,))
+            db.commit()
 
 STYLE = r"""
 * { font-family: 'Segoe UI'; }
@@ -184,11 +234,15 @@ class MainWindow(QMainWindow):
         self.chat_thread = self.chat_worker = None
         self.assistant_browser = None
         self.stream_text = ""
-        self.saved_conversations = []
+        self.store = ConversationStore()
+        self.conversation_id = str(uuid.uuid4())
+        self.transcript = []
         self.current_title = "Nouvelle conversation"
+        self._history_items = {}
         self.setStyleSheet(STYLE)
         self._build_ui()
         self._check_ollama()
+        self.reload_conversations()
 
     def _build_ui(self):
         root = QWidget(objectName="root")
@@ -232,6 +286,13 @@ class MainWindow(QMainWindow):
         sep2 = QFrame(); sep2.setFixedHeight(1); sep2.setStyleSheet("background:#202a45;"); side.addWidget(sep2)
         hist_label = QLabel("RÉCENT"); hist_label.setObjectName("section"); side.addWidget(hist_label)
         self.history_list = QListWidget(); self.history_list.itemClicked.connect(self.restore_conversation); side.addWidget(self.history_list,1)
+        history_actions = QHBoxLayout()
+        self.rename_chat_button = QPushButton("Renommer"); self.rename_chat_button.setObjectName("smallAction")
+        self.rename_chat_button.clicked.connect(self.rename_conversation)
+        self.delete_chat_button = QPushButton("Supprimer"); self.delete_chat_button.setObjectName("smallAction")
+        self.delete_chat_button.clicked.connect(self.delete_conversation)
+        history_actions.addWidget(self.rename_chat_button); history_actions.addWidget(self.delete_chat_button)
+        side.addLayout(history_actions)
         footer = QHBoxLayout()
         footer_mark = QLabel("●"); footer_mark.setStyleSheet("color:#6fe0bb; font-size:11px;")
         footer_text = QLabel("Vos documents restent sur cet appareil"); footer_text.setObjectName("muted")
@@ -352,8 +413,12 @@ class MainWindow(QMainWindow):
         if self.busy or self.index_thread is not None: return
         paths, _ = QFileDialog.getOpenFileNames(self,"Importer des PDF",str(Path.home()),"Fichiers PDF (*.pdf)")
         if not paths: return
-        self.pdf_paths = paths; self.pdf_path = paths[0]; name = f"{len(paths)} document(s) : " + ", ".join(Path(x).name for x in paths)
+        self.pdf_paths = paths; self.pdf_path = paths[0]
+        name = f"{len(paths)} document(s) : " + ", ".join(Path(x).name for x in paths)
         self.doc_name.setText(name); self.doc_card_name.setText(name)
+        self._start_indexing(paths)
+
+    def _start_indexing(self, paths):
         self.index_label.setText("Préparation de l'index..."); self.index_progress.show(); self.import_button.setEnabled(False)
         self.status.setText("◌  INDEXATION")
         self.index_thread = QThread(); self.index_worker = IndexWorker(paths); self.index_worker.moveToThread(self.index_thread)
@@ -436,36 +501,96 @@ class MainWindow(QMainWindow):
                 child_layout.deleteLater()
         self.chat_layout.addStretch(1)
 
+    def _conversation_title(self, messages):
+        first = next((m.get("content", "") for m in messages if m.get("role") == "user"), "Conversation")
+        title = first.strip().replace("\n", " ")[:42] or "Conversation"
+        return title + ("…" if len(first.strip()) > 42 else "")
+
+    def persist_current_conversation(self):
+        if not self.transcript:
+            return
+        if self.current_title == "Nouvelle conversation":
+            self.current_title = self._conversation_title(self.transcript)
+            self.page_title.setText(self.current_title)
+        self.store.save(self.conversation_id, self.current_title, self.transcript, self.pdf_paths)
+        self.reload_conversations(select_id=self.conversation_id)
+
+    def reload_conversations(self, select_id=None):
+        self.history_list.clear(); self._history_items = {}
+        for conv in self.store.list():
+            stamp = conv["updated_at"].replace("T", " ")[:16]
+            item = QListWidgetItem(f"◦  {conv['title']}\n    {stamp}")
+            item.setData(Qt.ItemDataRole.UserRole, conv["id"])
+            self.history_list.addItem(item); self._history_items[conv["id"]] = item
+            if conv["id"] == select_id: self.history_list.setCurrentItem(item)
+
     def new_chat(self):
         if self.busy:
-            QMessageBox.information(self, "Réponse en cours",
-                                    "Attends la fin de la réponse avant de commencer une nouvelle conversation.")
+            QMessageBox.information(self, "Réponse en cours", "Attends la fin de la réponse avant de commencer une nouvelle conversation.")
             return
-        # Archive la conversation actuelle uniquement si elle contient un échange.
-        if self.history:
-            first_question = next((m.get("content", "") for m in self.history if m.get("role") == "user"), "Conversation")
-            title = first_question.strip().replace("\n", " ")[:42] or "Conversation"
-            if len(first_question.strip()) > 42:
-                title += "…"
-            self.saved_conversations.insert(0, (title, list(self.history)))
-            self.history_list.insertItem(0, QListWidgetItem("◦  " + title))
-        self.history = []
+        self.persist_current_conversation()
+        self.conversation_id = str(uuid.uuid4())
+        self.transcript = []; self.history = []
         self.current_title = "Nouvelle conversation"
         self.page_title.setText("Votre espace intelligent")
-        self._clear_chat()
-        self.show_welcome()
-        self.input.clear()
-        self.input.setFocus()
-        self.scroll_bottom()
+        self._clear_chat(); self.show_welcome(); self.input.clear(); self.input.setFocus()
+        self.history_list.clearSelection(); self.scroll_bottom()
 
     def restore_conversation(self, item):
         if self.busy: return
-        index = self.history_list.row(item)
-        if index < 0 or index >= len(self.saved_conversations): return
-        title, history = self.saved_conversations[index]
-        self.history = list(history); self.page_title.setText(title); self._clear_chat()
-        for msg in self.history:
-            self.add_message(msg["content"], "user" if msg["role"] == "user" else "assistant")
+        conversation_id = item.data(Qt.ItemDataRole.UserRole)
+        data = self.store.load(conversation_id)
+        if not data: return
+        self.conversation_id = conversation_id
+        self.current_title = data["title"]
+        self.transcript = data["messages"]
+        # L'historique de contexte envoyé au modèle est limité aux deux derniers échanges.
+        self.history = [{"role": m["role"], "content": m["content"]} for m in self.transcript[-4:]]
+        self.pdf_paths = [path for path in data.get("pdf_paths", []) if Path(path).is_file()]
+        self.pdf_path = self.pdf_paths[0] if self.pdf_paths else None
+        self.chunks = self.embeddings = None
+        self.summary_button.setEnabled(False)
+        if self.pdf_paths:
+            names = ", ".join(Path(x).name for x in self.pdf_paths)
+            label = f"{len(self.pdf_paths)} document(s) : {names}"
+            self.doc_name.setText(label); self.doc_card_name.setText(label)
+            self.index_label.setText("Réindexation des PDF de cette conversation…")
+            self._start_indexing(self.pdf_paths)
+        else:
+            self.doc_name.setText("Aucun document importé"); self.doc_card_name.setText("Aucun document sélectionné")
+            self.index_label.setText("Réimporte les PDF nécessaires pour poursuivre cette discussion")
+        self.page_title.setText(self.current_title); self._clear_chat()
+        for msg in self.transcript:
+            self.add_message(msg.get("content", ""), "user" if msg.get("role") == "user" else "assistant")
+        self.scroll_bottom()
+
+    def rename_conversation(self):
+        item = self.history_list.currentItem()
+        if not item: return
+        from PySide6.QtWidgets import QInputDialog
+        conversation_id = item.data(Qt.ItemDataRole.UserRole)
+        data = self.store.load(conversation_id)
+        if not data: return
+        title, ok = QInputDialog.getText(self, "Renommer la conversation", "Nouveau titre :", text=data["title"])
+        if ok and title.strip():
+            data["title"] = title.strip()
+            self.store.save(conversation_id, title.strip(), data["messages"], data["pdf_paths"])
+            if conversation_id == self.conversation_id:
+                self.current_title = title.strip(); self.page_title.setText(self.current_title)
+            self.reload_conversations(select_id=conversation_id)
+
+    def delete_conversation(self):
+        item = self.history_list.currentItem()
+        if not item: return
+        conversation_id = item.data(Qt.ItemDataRole.UserRole)
+        answer = QMessageBox.question(self, "Supprimer", "Supprimer définitivement cette conversation ?")
+        if answer != QMessageBox.StandardButton.Yes: return
+        self.store.delete(conversation_id)
+        if conversation_id == self.conversation_id:
+            self.conversation_id = str(uuid.uuid4()); self.transcript = []; self.history = []
+            self.current_title = "Nouvelle conversation"; self.page_title.setText("Votre espace intelligent")
+            self._clear_chat(); self.show_welcome()
+        self.reload_conversations()
 
     def add_message(self, content, role):
         is_user = role == "user"
@@ -517,6 +642,8 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self,"Ajoute un document","Importe un PDF et attends la fin de son indexation avant de poser une question."); return
         self.input.clear(); self.page_title.setText(question[:48] + ("…" if len(question)>48 else ""))
         self.add_message(question,"user"); self.assistant_browser = self.add_message("", "assistant"); self.stream_text = ""
+        self.transcript.append({"role": "user", "content": question})
+        self.persist_current_conversation()
         self.busy = True; self.send_btn.setEnabled(False); self.input.setEnabled(False); self.import_button.setEnabled(False)
         self.status.setText("◌  L-GPT RÉFLÉCHIT"); self.status.setObjectName("statusBusy"); self.status.style().unpolish(self.status); self.status.style().polish(self.status)
         self.chat_thread = QThread(); self.chat_worker = ChatWorker(question,self.chunks,self.embeddings,list(self.history),self.model_combo.currentText())
@@ -540,10 +667,15 @@ class MainWindow(QMainWindow):
                 filename = source.get("source", "PDF") if isinstance(source,dict) else "PDF"
                 text += f"\n- **{filename}** · page **{page}**" + (f" · passage {chunk}" if chunk else "")
         self.assistant_browser.set_chat_markdown(text); self.scroll_bottom()
+        self.transcript.append({"role": "assistant", "content": text})
+        self.persist_current_conversation()
         self.status.setText("●  RÉPONSE TERMINÉE"); self.status.setObjectName("status"); self.status.style().unpolish(self.status); self.status.style().polish(self.status)
 
     def on_answer_error(self, error):
-        self.assistant_browser.set_chat_markdown("**Une erreur est survenue :**\n\n" + error)
+        error_text = "**Une erreur est survenue :**\n\n" + error
+        self.assistant_browser.set_chat_markdown(error_text)
+        self.transcript.append({"role": "assistant", "content": error_text})
+        self.persist_current_conversation()
         self.status.setText("●  ERREUR")
 
     def chat_thread_done(self):
@@ -555,6 +687,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         if self.busy or self.index_thread is not None or self.summary_thread is not None:
             QMessageBox.information(self,"Opération en cours","Attends la fin de la génération ou de l'indexation avant de fermer L-GPT."); event.ignore(); return
+        self.persist_current_conversation()
         event.accept()
 
 def main():

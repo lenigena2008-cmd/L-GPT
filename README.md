@@ -9,6 +9,9 @@ L-GPT est une application de bureau qui utilise les modèles installés localeme
 - Affichage des documents et pages utilisés comme sources.
 - Génération de synthèses PDF structurées à partir de plusieurs cours.
 - Détection automatique des modèles de conversation installés dans Ollama.
+- Historique permanent des conversations, sauvegardé automatiquement dans une base SQLite locale.
+- Restauration des anciennes discussions, renommage et suppression depuis la barre latérale.
+- Réindexation automatique des PDF associés à une conversation lorsqu’on la rouvre (si les fichiers sont toujours au même emplacement).
 - Génération en flux (streaming) et sans limite artificielle de nombre de tokens de sortie : le modèle peut continuer jusqu'à ce qu'il termine sa réponse. La durée et la longueur restent dépendantes du modèle, de la mémoire disponible et de sa fenêtre de contexte.
 - Traitement local : les PDF et leurs index restent sur l'ordinateur.
 
@@ -118,9 +121,28 @@ Après l'installation des dépendances, lance `BUILD_EXE.bat`. Le résultat est 
 - **Erreur au démarrage de l'interface** : consulte `L-GPT_erreurs.log` s'il a été créé.
 - **Réinstaller les dépendances** : relance `INSTALLER.bat`.
 
-## Historique des conversations
+## Historique permanent des conversations
 
-Le bouton « Nouvelle conversation » archive l'échange actuel dans la liste « Récent » et réinitialise le fil. Dans cette version, les conversations sont conservées pendant la session de l'application ; elles ne sont pas encore enregistrées après fermeture.
+Les conversations sont enregistrées automatiquement dans une base SQLite locale. Fermer puis relancer L-GPT ne supprime donc pas l'historique.
+
+- La liste « Récent » affiche les conversations enregistrées, de la plus récente à la plus ancienne.
+- Clique sur une conversation pour afficher à nouveau tous ses messages.
+- « Renommer » permet de modifier son titre et « Supprimer » l'efface définitivement.
+- « Nouvelle conversation » démarre un fil séparé sans effacer les précédents.
+- Les messages sont sauvegardés au fil de la discussion et à la fermeture de l'application.
+- Lorsqu'une conversation est rouverte, L-GPT essaie de réindexer les PDF qui lui étaient associés. Les fichiers doivent toujours exister au même emplacement. Si un PDF a été déplacé ou supprimé, il faudra le réimporter.
+
+### Emplacement de la base de données
+
+Sous Windows, les données sont conservées dans :
+
+```text
+%APPDATA%\L-GPT\conversations.db
+```
+
+En général, cela correspond à `C:\Users\VotreNom\AppData\Roaming\L-GPT\conversations.db`. La base est indépendante du dossier du programme : mettre à jour ou remplacer le dossier de L-GPT ne supprime donc pas les conversations. Pour sauvegarder l'historique, ferme L-GPT puis copie le fichier `conversations.db` dans un emplacement sûr. Ne partage pas ce fichier s'il contient des conversations privées.
+
+Pour continuer une discussion, L-GPT transmet au modèle les derniers échanges de la conversation restaurée. Le fil complet reste visible et sauvegardé dans la base, mais le contexte réellement transmis au modèle dépend de la fenêtre de contexte et de la mémoire disponible.
 
 ## Formules dans les PDF générés
 

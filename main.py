@@ -5,6 +5,7 @@ import os
 import sqlite3
 import uuid
 import json
+from threading import Event
 from pathlib import Path
 from datetime import datetime
 
@@ -141,25 +142,26 @@ class SummaryWorker(QObject):
     progress = Signal(str)
     finished = Signal(str)
     failed = Signal(str)
-    def __init__(self, paths, output, model):
-        super().__init__(); self.paths, self.output, self.model = paths, output, model
+    def __init__(self, paths, output, model, stop_event):
+        super().__init__(); self.paths, self.output, self.model, self.stop_event = paths, output, model, stop_event
     def run(self):
-        try: self.finished.emit(create_summary_pdf(self.paths, self.output, self.model, self.progress.emit))
+        try: self.finished.emit(create_summary_pdf(self.paths, self.output, self.model, self.progress.emit, self.stop_event))
         except Exception as exc: self.failed.emit(str(exc))
 
 class ChatWorker(QObject):
     token = Signal(str)
     finished = Signal(str, object, object)
     failed = Signal(str)
-    def __init__(self, question, chunks, embeddings, history, model):
+    def __init__(self, question, chunks, embeddings, history, model, stop_event):
         super().__init__()
         self.question, self.chunks = question, chunks
         self.embeddings, self.history, self.model = embeddings, history, model
+        self.stop_event = stop_event
     def run(self):
         try:
             response, sources, history = answer(
                 self.question, self.chunks, self.embeddings,
-                self.history, self.model, self.token.emit
+                self.history, self.model, self.token.emit, self.stop_event
             )
             self.finished.emit(response, sources, history)
         except Exception as exc:
@@ -232,6 +234,8 @@ class MainWindow(QMainWindow):
         self.index_thread = self.index_worker = None
         self.summary_thread = self.summary_worker = None
         self.chat_thread = self.chat_worker = None
+        self.chat_stop_event = None
+        self.summary_stop_event = None
         self.assistant_browser = None
         self.stream_text = ""
         self.store = ConversationStore()
@@ -269,6 +273,10 @@ class MainWindow(QMainWindow):
         self.import_button.clicked.connect(self.import_pdf); side.addWidget(self.import_button)
         self.summary_button = QPushButton("✧   Créer un résumé PDF")
         self.summary_button.clicked.connect(self.create_summary); self.summary_button.setEnabled(False); side.addWidget(self.summary_button)
+        self.stop_summary_button = QPushButton("■   Arrêter la synthèse")
+        self.stop_summary_button.setObjectName("smallAction")
+        self.stop_summary_button.clicked.connect(self.stop_summary)
+        self.stop_summary_button.hide(); side.addWidget(self.stop_summary_button)
         self.doc_name = QLabel("Aucun document importé"); self.doc_name.setObjectName("muted"); self.doc_name.setWordWrap(True); side.addWidget(self.doc_name)
         self.index_progress = QProgressBar(); self.index_progress.setRange(0,0); self.index_progress.hide(); side.addWidget(self.index_progress)
         self.index_label = QLabel("En attente d'un document"); self.index_label.setObjectName("muted"); side.addWidget(self.index_label)
@@ -332,6 +340,11 @@ class MainWindow(QMainWindow):
         self.input.installEventFilter(self)
         compose.addWidget(self.input,1)
         self.send_btn = QPushButton("↑"); self.send_btn.setObjectName("send"); self.send_btn.clicked.connect(self.send_message); compose.addWidget(self.send_btn)
+        self.stop_chat_btn = QPushButton("■")
+        self.stop_chat_btn.setObjectName("send")
+        self.stop_chat_btn.setToolTip("Arrêter la génération en cours")
+        self.stop_chat_btn.clicked.connect(self.stop_chat)
+        self.stop_chat_btn.hide(); compose.addWidget(self.stop_chat_btn)
         main.addWidget(composer)
         note = QLabel("L-GPT peut se tromper. Vérifie les informations importantes."); note.setObjectName("muted"); note.setAlignment(Qt.AlignmentFlag.AlignCenter); main.addWidget(note)
         outer.addWidget(self.main_area,1)
@@ -460,9 +473,11 @@ class MainWindow(QMainWindow):
         if not output: return
         if not output.lower().endswith(".pdf"): output += ".pdf"
         self.summary_button.setEnabled(False); self.import_button.setEnabled(False)
+        self.summary_stop_event = Event()
+        self.stop_summary_button.show()
         self.status.setText("◌  CRÉATION DE LA SYNTHÈSE"); self.status.setObjectName("statusBusy")
         self.index_label.setText("Préparation de la synthèse…")
-        self.summary_thread = QThread(); self.summary_worker = SummaryWorker(list(self.pdf_paths), output, self.model_combo.currentText())
+        self.summary_thread = QThread(); self.summary_worker = SummaryWorker(list(self.pdf_paths), output, self.model_combo.currentText(), self.summary_stop_event)
         self.summary_worker.moveToThread(self.summary_thread)
         self.summary_thread.started.connect(self.summary_worker.run)
         self.summary_worker.progress.connect(self.index_label.setText)
@@ -471,18 +486,31 @@ class MainWindow(QMainWindow):
         self.summary_thread.finished.connect(self.summary_worker.deleteLater); self.summary_thread.finished.connect(self.summary_thread.deleteLater)
         self.summary_thread.finished.connect(self.summary_thread_done); self.summary_thread.start()
 
+    def stop_summary(self):
+        if self.summary_stop_event is not None:
+            self.summary_stop_event.set()
+            self.stop_summary_button.setEnabled(False)
+            self.index_label.setText("Arrêt demandé…")
+
     def summary_done(self, path):
         self.index_label.setText("Synthèse PDF créée avec succès")
         QMessageBox.information(self, "Synthèse terminée", f"Le PDF a été créé :\n{path}")
 
     def summary_error(self, error):
+        if self.summary_stop_event is not None and self.summary_stop_event.is_set():
+            self.index_label.setText("Synthèse interrompue par l'utilisateur")
+            self.status.setText("●  SYNTHÈSE ARRÊTÉE")
+            return
         self.index_label.setText("Échec de la création du PDF")
         QMessageBox.critical(self, "Impossible de créer la synthèse", error)
 
     def summary_thread_done(self):
         self.summary_button.setEnabled(bool(self.pdf_paths)); self.import_button.setEnabled(True)
+        self.stop_summary_button.hide(); self.stop_summary_button.setEnabled(True)
+        self.summary_stop_event = None
         self.summary_thread = self.summary_worker = None
-        self.status.setText("●  DOCUMENTS PRÊTS")
+        if self.status.text().find("ARRÊTÉE") < 0:
+            self.status.setText("●  DOCUMENTS PRÊTS")
 
     def _clear_chat(self):
         # Supprime les widgets ET les layouts de lignes (les messages sont dans des QHBoxLayout).
@@ -644,14 +672,22 @@ class MainWindow(QMainWindow):
         self.add_message(question,"user"); self.assistant_browser = self.add_message("", "assistant"); self.stream_text = ""
         self.transcript.append({"role": "user", "content": question})
         self.persist_current_conversation()
-        self.busy = True; self.send_btn.setEnabled(False); self.input.setEnabled(False); self.import_button.setEnabled(False)
+        self.busy = True; self.send_btn.hide(); self.stop_chat_btn.show(); self.stop_chat_btn.setEnabled(True)
+        self.chat_stop_event = Event()
+        self.input.setEnabled(False); self.import_button.setEnabled(False)
         self.status.setText("◌  L-GPT RÉFLÉCHIT"); self.status.setObjectName("statusBusy"); self.status.style().unpolish(self.status); self.status.style().polish(self.status)
-        self.chat_thread = QThread(); self.chat_worker = ChatWorker(question,self.chunks,self.embeddings,list(self.history),self.model_combo.currentText())
+        self.chat_thread = QThread(); self.chat_worker = ChatWorker(question,self.chunks,self.embeddings,list(self.history),self.model_combo.currentText(),self.chat_stop_event)
         self.chat_worker.moveToThread(self.chat_thread); self.chat_thread.started.connect(self.chat_worker.run)
         self.chat_worker.token.connect(self.on_token); self.chat_worker.finished.connect(self.on_answer_finished); self.chat_worker.failed.connect(self.on_answer_error)
         self.chat_worker.finished.connect(self.chat_thread.quit); self.chat_worker.failed.connect(self.chat_thread.quit)
         self.chat_thread.finished.connect(self.chat_worker.deleteLater); self.chat_thread.finished.connect(self.chat_thread.deleteLater); self.chat_thread.finished.connect(self.chat_thread_done)
         self.chat_thread.start()
+
+    def stop_chat(self):
+        if self.chat_stop_event is not None:
+            self.chat_stop_event.set()
+            self.stop_chat_btn.setEnabled(False)
+            self.status.setText("◌  ARRÊT DE LA GÉNÉRATION…")
 
     def on_token(self, token):
         self.stream_text += token; self.assistant_browser.set_chat_markdown(self.stream_text); self.scroll_bottom()
@@ -672,6 +708,14 @@ class MainWindow(QMainWindow):
         self.status.setText("●  RÉPONSE TERMINÉE"); self.status.setObjectName("status"); self.status.style().unpolish(self.status); self.status.style().polish(self.status)
 
     def on_answer_error(self, error):
+        if self.chat_stop_event is not None and self.chat_stop_event.is_set():
+            partial = self.stream_text.strip()
+            stopped_text = (partial + "\n\n*— Génération arrêtée.*") if partial else "*Génération arrêtée.*"
+            self.assistant_browser.set_chat_markdown(stopped_text)
+            self.transcript.append({"role": "assistant", "content": stopped_text})
+            self.persist_current_conversation()
+            self.status.setText("●  GÉNÉRATION ARRÊTÉE")
+            return
         error_text = "**Une erreur est survenue :**\n\n" + error
         self.assistant_browser.set_chat_markdown(error_text)
         self.transcript.append({"role": "assistant", "content": error_text})
@@ -679,9 +723,11 @@ class MainWindow(QMainWindow):
         self.status.setText("●  ERREUR")
 
     def chat_thread_done(self):
-        self.busy = False; self.send_btn.setEnabled(True); self.input.setEnabled(True); self.import_button.setEnabled(True)
+        self.busy = False; self.stop_chat_btn.hide(); self.stop_chat_btn.setEnabled(True)
+        self.send_btn.show(); self.send_btn.setEnabled(True); self.input.setEnabled(True); self.import_button.setEnabled(True)
         self.input.setFocus(); self.chat_thread = self.chat_worker = None
-        if self.status.text().find("ERREUR") < 0:
+        self.chat_stop_event = None
+        if self.status.text().find("ERREUR") < 0 and self.status.text().find("ARRÊTÉE") < 0:
             self.status.setText("●  OLLAMA CONNECTÉ"); self.status.setObjectName("status"); self.status.style().unpolish(self.status); self.status.style().polish(self.status)
 
     def closeEvent(self, event):

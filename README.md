@@ -7,7 +7,7 @@ L-GPT est une application de bureau qui utilise les modèles installés localeme
 - Interface de conversation sombre, avec réponses Markdown.
 - Import de plusieurs PDF et recherche de passages pertinents pour répondre aux questions.
 - Affichage des documents et pages utilisés comme sources.
-- Génération de synthèses PDF structurées à partir de plusieurs cours.
+- Génération de synthèses PDF structurées à partir de plusieurs cours, avec fenêtre de contexte augmentée jusqu’à 16 384 tokens et génération sans limite artificielle de tokens de sortie.
 - Détection automatique des modèles de conversation installés dans Ollama.
 - Historique permanent des conversations, sauvegardé automatiquement dans une base SQLite locale.
 - Restauration des anciennes discussions, renommage et suppression depuis la barre latérale.
@@ -147,3 +147,19 @@ Pour continuer une discussion, L-GPT transmet au modèle les derniers échanges 
 ## Formules dans les PDF générés
 
 Les consignes de génération interdisent le LaTeX. Les formules doivent être écrites en notation texte lisible, par exemple `(a)/(b)`, `x^2`, `×`, `√(...)` et `H2O`. Le moteur nettoie également plusieurs commandes LaTeX fréquentes avant la mise en page du PDF.
+
+
+## Arrêter une génération (v2.3)
+
+- Pendant une réponse dans le chat, le bouton d'envoi est remplacé par un bouton carré **Arrêter**. Il interrompt le flux Ollama et conserve dans la conversation le texte déjà généré.
+- Pendant la création d'une synthèse PDF, le bouton **Arrêter la synthèse** apparaît sous le bouton de création. L'arrêt est pris en compte pendant les appels de génération et entre les différentes parties du cours.
+- L'arrêt d'une synthèse avant la création finale du PDF ne produit pas de fichier PDF incomplet.
+
+
+## Version 2.4 – Nettoyage des formules
+
+- Nettoyage renforcé du LaTeX résiduel dans les synthèses PDF.
+- Conversion des fractions (`\\frac`, `\\dfrac`, `\\tfrac`), racines, indices, exposants, symboles grecs et opérateurs courants en notation texte lisible.
+- Nettoyage des commandes de mise en forme, délimiteurs mathématiques et environnements d’alignement.
+- Les consignes de génération et de fusion des synthèses interdisent plus explicitement les commandes LaTeX.
+- Les fonctionnalités de la version 2.3, notamment l’arrêt de génération et l’historique permanent, sont conservées.

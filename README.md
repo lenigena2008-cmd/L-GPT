@@ -1,42 +1,127 @@
 # L-GPT — Assistant IA local pour Windows
 
-## Ce que fait cette version
-- Interface sombre premium bleu nuit / violet, inspirée d'une conversation ChatGPT.
-- Réponses affichées directement dans le fil, sur toute la largeur disponible : pas de petite boîte de réponse ni de barre de défilement indépendante.
-- Import de plusieurs PDF en une fois et questions sur l'ensemble des documents.
-- Affichage du nom du PDF et du numéro de page dans les sources.
-- Bouton **Créer un résumé PDF** : l'IA analyse les documents importés, construit une synthèse organisée et l'enregistre dans un PDF que tu choisis.
-- Traitement local avec Ollama. Les PDF et leurs index restent sur ton ordinateur.
+L-GPT est une application de bureau qui utilise les modèles installés localement avec **Ollama**.
 
-## Installation (à faire une seule fois)
-1. Extrais **tout** le ZIP dans un dossier normal, par exemple `Documents\L-GPT`. Ne lance pas les fichiers depuis l'aperçu du ZIP.
-2. Vérifie que Python (3.11 ou plus récent) et Ollama sont installés.
-3. Double-clique sur `INSTALLER.bat`. Une fenêtre reste ouverte pendant l'installation et affiche les erreurs éventuelles. Attends le message de réussite.
-4. Vérifie que les modèles sont présents dans Ollama. D'après ta configuration actuelle, tu as notamment `nomic-embed-text:latest`, `qwen3.8:27b`, `qwen3.5:9b` et `qwen3.5:4b`.
-5. Double-clique sur `L-GPT.bat`.
+## Fonctionnalités
 
-## Utilisation
+- Interface de conversation sombre, avec réponses Markdown.
+- Import de plusieurs PDF et recherche de passages pertinents pour répondre aux questions.
+- Affichage des documents et pages utilisés comme sources.
+- Génération de synthèses PDF structurées à partir de plusieurs cours.
+- Détection automatique des modèles de conversation installés dans Ollama.
+- Génération en flux (streaming) et sans limite artificielle de nombre de tokens de sortie : le modèle peut continuer jusqu'à ce qu'il termine sa réponse. La durée et la longueur restent dépendantes du modèle, de la mémoire disponible et de sa fenêtre de contexte.
+- Traitement local : les PDF et leurs index restent sur l'ordinateur.
+
+## Prérequis
+
+1. Windows 10 ou 11.
+2. Python 3.11 ou plus récent.
+3. Ollama installé et démarré.
+4. Au moins un modèle de conversation Ollama et le modèle d'embeddings `nomic-embed-text`.
+
+Téléchargement officiel d'Ollama : <https://ollama.com/download>
+
+## Installer L-GPT
+
+1. Télécharge ou clone le dépôt GitHub.
+2. Extrais le dossier `L-GPT` dans un emplacement normal, par exemple `Documents\L-GPT`.
+3. Double-clique sur `INSTALLER.bat` et attends la fin de l'installation.
+4. Télécharge les modèles Ollama souhaités (voir la section suivante).
+5. Vérifie qu'Ollama est démarré, puis lance `L-GPT.bat`.
+
+## Télécharger des modèles Ollama
+
+Ollama n'installe pas automatiquement de modèle avec son programme. Les modèles se téléchargent séparément.
+
+### Méthode simple avec le terminal Windows
+
+1. Ouvre le menu Démarrer.
+2. Recherche **Terminal** ou **PowerShell** et ouvre-le.
+3. Tape la commande `ollama pull` suivie du nom du modèle.
+4. Attends la fin du téléchargement. La taille peut atteindre plusieurs gigaoctets.
+
+Exemples de commandes :
+
+```powershell
+ollama pull gemma4
+ollama pull gemma4:e4b
+ollama pull gemma4:12b
+ollama pull qwen3
+ollama pull llama3.3
+ollama pull nomic-embed-text
+```
+
+Les noms et variantes disponibles évoluent. Avant de télécharger une variante précise, consulte sa fiche et copie le nom exact affiché dans la bibliothèque Ollama : <https://ollama.com/library>.
+
+Par exemple, la page Gemma 4 liste plusieurs tailles (`gemma4:e2b`, `gemma4:e4b`, `gemma4:12b`, `gemma4:26b`, `gemma4:31b`). Il suffit d'utiliser le nom exact après `ollama pull`.
+
+### Vérifier les modèles installés
+
+Dans le terminal, exécute :
+
+```powershell
+ollama list
+```
+
+Pour lancer un modèle directement dans le terminal :
+
+```powershell
+ollama run gemma4
+```
+
+Pour supprimer un modèle et libérer de l'espace disque :
+
+```powershell
+ollama rm nom-du-modele
+```
+
+### Faire apparaître un nouveau modèle dans L-GPT
+
+L-GPT interroge Ollama au démarrage et récupère automatiquement les modèles locaux installés. Si l'application est déjà ouverte pendant le téléchargement d'un nouveau modèle :
+
+1. Termine le téléchargement dans le terminal.
+2. Dans L-GPT, clique sur le petit bouton **↻** à côté de la liste « Modèle IA ».
+3. Le nouveau modèle doit apparaître dans la liste. Sélectionne-le pour l'utiliser.
+
+Le modèle `nomic-embed-text` sert à transformer les passages PDF en vecteurs de recherche. Il est donc utilisé en arrière-plan et n'est pas proposé comme modèle de conversation.
+
+### Choisir une taille adaptée à son ordinateur
+
+Les modèles les plus grands demandent généralement plus de mémoire vive et peuvent répondre beaucoup plus lentement. Commence par une variante légère si ton ordinateur dispose de peu de mémoire. Vérifie la taille indiquée sur la fiche du modèle avant de le télécharger. Avoir assez d'espace disque ne garantit pas que le modèle pourra fonctionner en mémoire.
+
+## Utiliser L-GPT
+
 1. Démarre Ollama.
-2. Lance L-GPT avec `L-GPT.bat`.
-3. Clique sur **Importer des PDF** et sélectionne un ou plusieurs cours.
-4. Attends que l'indexation soit terminée. Tu peux ensuite poser tes questions dans la zone du bas ; Entrée envoie et Maj+Entrée ajoute une ligne.
-5. Pour obtenir une synthèse, clique sur **Créer un résumé PDF**, choisis où enregistrer le fichier et attends la fin de l'analyse.
+2. Lance `L-GPT.bat`.
+3. Choisis un modèle dans la liste « Modèle IA ».
+4. Clique sur **Importer des PDF** et sélectionne un ou plusieurs cours.
+5. Attends la fin de l'indexation, puis pose tes questions dans la zone de saisie. Entrée envoie le message ; Maj+Entrée ajoute une ligne.
+6. Pour créer une synthèse, clique sur **Créer un résumé PDF**, choisis l'emplacement du fichier et attends la fin de la génération.
 
-Les index sont mis en cache à côté des PDF (`.rag.json`) afin d'éviter de recalculer les embeddings à chaque lancement. Les PDF scannés sans couche de texte nécessitent un OCR et ne sont pas pris en charge dans cette version.
+Les index sont mis en cache à côté des PDF (`.rag.json`) pour éviter de recalculer les embeddings à chaque lancement. Les PDF scannés sans couche de texte nécessitent un OCR et ne sont pas pris en charge dans cette version.
+
+## Génération de réponses longues
+
+La génération des réponses utilise le streaming et `num_predict = -1` côté Ollama, ce qui supprime la limite artificielle de sortie imposée auparavant par L-GPT. La génération se poursuit jusqu'à ce que le modèle décide de terminer.
+
+Cela ne signifie pas une longueur littéralement infinie : le modèle peut terminer naturellement, et la mémoire disponible, la fenêtre de contexte, la taille du prompt et les limites propres au modèle restent déterminantes. Une réponse très longue peut aussi prendre plusieurs minutes.
 
 ## Créer une application `.exe`
-Lance `BUILD_EXE.bat` après l'installation. Le résultat est dans `dist\L-GPT\L-GPT.exe`. Il faut conserver tout le dossier `dist\L-GPT`, pas seulement le fichier EXE. Ollama et ses modèles restent des prérequis externes.
 
-## En cas de problème
-- Si `L-GPT.bat` détecte un environnement ou une dépendance manquante, il affiche une erreur et garde la fenêtre ouverte.
-- Les erreurs Python au démarrage de l'interface sont consignées dans `L-GPT_erreurs.log`.
-- Pour réinstaller les dépendances, relance `INSTALLER.bat`.
+Après l'installation des dépendances, lance `BUILD_EXE.bat`. Le résultat est normalement placé dans `dist\L-GPT\L-GPT.exe`. Conserve tout le dossier `dist\L-GPT`, pas uniquement le fichier EXE. Ollama et ses modèles restent des prérequis externes.
 
-## Mémoire / erreur de démarrage du serveur IA
-Cette version utilise `num_ctx=2048` pour les questions et la génération des résumés, afin de réduire la mémoire réservée au cache KV. Si un modèle 27B échoue encore au chargement, ferme les applications lourdes et choisis `qwen3.5:9b` ou `qwen3.5:4b` dans la liste des modèles. La mémoire nécessaire dépend du modèle, de sa quantification et du partage RAM/graphique.
+## Dépannage
+
+- **Ollama hors ligne** : vérifie qu'Ollama est installé et démarré.
+- **Un modèle n'apparaît pas** : exécute `ollama list`, puis clique sur **↻** dans L-GPT.
+- **Erreur de mémoire / modèle impossible à charger** : essaie une variante plus petite et ferme les applications lourdes. La mémoire requise dépend de la taille, de la quantification et de la fenêtre de contexte.
+- **Erreur au démarrage de l'interface** : consulte `L-GPT_erreurs.log` s'il a été créé.
+- **Réinstaller les dépendances** : relance `INSTALLER.bat`.
 
 ## Historique des conversations
-Le bouton « Nouvelle conversation » archive l'échange actuel dans la liste « Récent » et réinitialise le fil. Les conversations sont conservées pendant la session de l'application ; elles ne sont pas encore enregistrées après fermeture.
+
+Le bouton « Nouvelle conversation » archive l'échange actuel dans la liste « Récent » et réinitialise le fil. Dans cette version, les conversations sont conservées pendant la session de l'application ; elles ne sont pas encore enregistrées après fermeture.
 
 ## Formules dans les PDF générés
-Les consignes de génération interdisent le LaTeX. Les formules doivent être écrites en notation texte lisible (par exemple `(a)/(b)`, `x^2`, `×`, `√(...)`). Le moteur nettoie également plusieurs commandes LaTeX fréquentes avant la mise en page du PDF.
+
+Les consignes de génération interdisent le LaTeX. Les formules doivent être écrites en notation texte lisible, par exemple `(a)/(b)`, `x^2`, `×`, `√(...)` et `H2O`. Le moteur nettoie également plusieurs commandes LaTeX fréquentes avant la mise en page du PDF.

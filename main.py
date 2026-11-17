@@ -17,7 +17,8 @@ from PySide6.QtWidgets import (
 from core.pdf_engine import answer, build_indexes, create_summary_pdf
 
 APP_NAME = "L-GPT"
-MODELS = ["qwen3.8:27b", "qwen3.5:9b", "qwen3.5:4b"]
+FALLBACK_MODELS = ["qwen3.8:27b", "qwen3.5:9b", "qwen3.5:4b"]
+EMBEDDING_MODEL_NAMES = {"nomic-embed-text", "nomic-embed-text:latest"}
 
 STYLE = r"""
 * { font-family: 'Segoe UI'; }
@@ -115,7 +116,7 @@ class ChatWorker(QObject):
             message = str(exc)
             lowered = message.lower()
             if any(term in lowered for term in ("out of memory", "failed to allocate", "kv cache", "cuda out of memory", "llama-server")):
-                message += ("\n\nPiste de résolution : L-GPT utilise maintenant une fenêtre de contexte réduite à 2048 tokens "
+                message += ("\n\nPiste de résolution : L-GPT utilise une fenêtre de contexte de 4096 tokens "
                             "pour limiter la mémoire nécessaire au cache KV. Ferme les applications lourdes et, si le problème persiste, "
                             "sélectionne un modèle plus léger comme qwen3.5:9b ou qwen3.5:4b.")
             self.failed.emit(message)
@@ -220,8 +221,13 @@ class MainWindow(QMainWindow):
 
         sep = QFrame(); sep.setFixedHeight(1); sep.setStyleSheet("background:#202a45;"); side.addWidget(sep)
         label = QLabel("MODÈLE IA"); label.setObjectName("section"); side.addWidget(label)
-        self.model_combo = QComboBox(); self.model_combo.addItems(MODELS); side.addWidget(self.model_combo)
-        self.model_hint = QLabel("Exécution locale via Ollama"); self.model_hint.setObjectName("muted"); side.addWidget(self.model_hint)
+        model_row = QHBoxLayout()
+        self.model_combo = QComboBox(); self.model_combo.setMinimumWidth(0); model_row.addWidget(self.model_combo, 1)
+        self.refresh_models_button = QPushButton("↻"); self.refresh_models_button.setFixedWidth(34)
+        self.refresh_models_button.setToolTip("Actualiser les modèles installés dans Ollama")
+        self.refresh_models_button.clicked.connect(self.refresh_models); model_row.addWidget(self.refresh_models_button)
+        side.addLayout(model_row)
+        self.model_hint = QLabel("Détection automatique des modèles Ollama"); self.model_hint.setObjectName("muted"); side.addWidget(self.model_hint)
 
         sep2 = QFrame(); sep2.setFixedHeight(1); sep2.setStyleSheet("background:#202a45;"); side.addWidget(sep2)
         hist_label = QLabel("RÉCENT"); hist_label.setObjectName("section"); side.addWidget(hist_label)
@@ -302,9 +308,37 @@ class MainWindow(QMainWindow):
                 self.send_message(); return True
         return super().eventFilter(obj,event)
 
+    def refresh_models(self):
+        """Recharge la liste des modèles réellement installés dans le serveur Ollama."""
+        try:
+            result = ollama.list()
+            entries = result.get("models", []) if isinstance(result, dict) else getattr(result, "models", [])
+            names = []
+            for entry in entries:
+                name = entry.get("model") or entry.get("name") if isinstance(entry, dict) else (getattr(entry, "model", None) or getattr(entry, "name", None))
+                if name and name not in names and name not in EMBEDDING_MODEL_NAMES and not name.startswith("nomic-embed-"):
+                    names.append(name)
+            names.sort(key=str.casefold)
+            previous = self.model_combo.currentText()
+            self.model_combo.clear()
+            self.model_combo.addItems(names or FALLBACK_MODELS)
+            if previous and self.model_combo.findText(previous) >= 0:
+                self.model_combo.setCurrentText(previous)
+            if names:
+                self.model_hint.setText(f"{len(names)} modèle(s) détecté(s) · actualise avec ↻ après un ollama pull")
+            else:
+                self.model_hint.setText("Aucun modèle de conversation détecté dans Ollama")
+            return True
+        except Exception:
+            self.model_combo.clear()
+            self.model_combo.addItems(FALLBACK_MODELS)
+            self.model_hint.setText("Ollama indisponible · modèles par défaut affichés")
+            return False
+
     def _check_ollama(self):
         try:
             ollama.list()
+            self.refresh_models()
             self.status.setText("●  OLLAMA CONNECTÉ")
             self.status.setObjectName("status")
             self.status.style().unpolish(self.status); self.status.style().polish(self.status)

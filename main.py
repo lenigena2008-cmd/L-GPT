@@ -5,6 +5,7 @@ import os
 import sqlite3
 import uuid
 import json
+import re
 from threading import Event
 from pathlib import Path
 from datetime import datetime
@@ -16,12 +17,15 @@ from PySide6.QtWidgets import (
     QApplication, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel,
     QMainWindow, QMessageBox, QPushButton, QScrollArea, QSizePolicy,
     QTextBrowser, QTextEdit, QVBoxLayout, QWidget, QProgressBar,
-    QListWidget, QListWidgetItem, QToolButton, QGraphicsDropShadowEffect
+    QListWidget, QListWidgetItem, QToolButton, QGraphicsDropShadowEffect,
+    QDialog, QDialogButtonBox, QFormLayout, QLineEdit, QPlainTextEdit,
+    QTabWidget, QTableWidget, QTableWidgetItem, QSpinBox, QCheckBox
 )
 
 from core.pdf_engine import answer_chat, build_indexes, create_summary_pdf
 
 APP_NAME = "L-GPT"
+APP_VERSION = "2.8"
 FALLBACK_MODELS = ["qwen3.8:27b", "qwen3.5:9b", "qwen3.5:4b"]
 EMBEDDING_MODEL_NAMES = {"nomic-embed-text", "nomic-embed-text:latest"}
 
@@ -41,7 +45,39 @@ class ConversationStore:
                 id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL, messages TEXT NOT NULL, pdf_paths TEXT NOT NULL DEFAULT '[]'
             )""")
+            db.execute("CREATE TABLE IF NOT EXISTS memories (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, updated_at TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
             db.commit()
+
+    def get_setting(self, key, default=None):
+        with sqlite3.connect(self.path) as db:
+            row = db.execute("SELECT value FROM app_settings WHERE key=?", (key,)).fetchone()
+        if not row: return default
+        try: return json.loads(row[0])
+        except Exception: return default
+
+    def set_setting(self, key, value):
+        with sqlite3.connect(self.path) as db:
+            db.execute("INSERT INTO app_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, json.dumps(value, ensure_ascii=False)))
+            db.commit()
+
+    def memories(self):
+        with sqlite3.connect(self.path) as db:
+            rows = db.execute("SELECT id,category,title,content,updated_at FROM memories ORDER BY category,title").fetchall()
+        return rows
+
+    def save_memory(self, category, title, content, memory_id=None):
+        now = datetime.now().isoformat(timespec="seconds")
+        with sqlite3.connect(self.path) as db:
+            if memory_id:
+                db.execute("UPDATE memories SET category=?,title=?,content=?,updated_at=? WHERE id=?", (category,title,content,now,memory_id))
+            else:
+                db.execute("INSERT INTO memories(category,title,content,updated_at) VALUES(?,?,?,?)", (category,title,content,now))
+            db.commit()
+
+    def delete_memory(self, memory_id):
+        with sqlite3.connect(self.path) as db:
+            db.execute("DELETE FROM memories WHERE id=?", (memory_id,)); db.commit()
 
     def save(self, conversation_id, title, messages, pdf_paths):
         now = datetime.now().isoformat(timespec="seconds")
@@ -221,7 +257,7 @@ class ChatMessageBrowser(QTextBrowser):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("L-GPT 2.7 | Assistant IA local")
+        self.setWindowTitle("L-GPT 2.8 | Assistant IA local")
         self.resize(1440, 920)
         self.setMinimumSize(1050, 700)
         self.setWindowIcon(QIcon(str(Path(__file__).parent / "assets" / "lgpt.ico")))
@@ -244,6 +280,7 @@ class MainWindow(QMainWindow):
         self.current_title = "Nouvelle conversation"
         self._history_items = {}
         self.setStyleSheet(STYLE)
+        self.settings = self.store.get_setting("runtime", {"profile":"Équilibré", "auto_model":True, "context":16384, "kv_cache":"f16"})
         self._build_ui()
         self._check_ollama()
         self.reload_conversations()
@@ -290,6 +327,8 @@ class MainWindow(QMainWindow):
         self.refresh_models_button.clicked.connect(self.refresh_models); model_row.addWidget(self.refresh_models_button)
         side.addLayout(model_row)
         self.model_hint = QLabel("Détection automatique des modèles Ollama"); self.model_hint.setObjectName("muted"); side.addWidget(self.model_hint)
+        self.settings_button = QPushButton("⚙   Paramètres IA et mémoire")
+        self.settings_button.clicked.connect(self.open_settings); side.addWidget(self.settings_button)
 
         sep2 = QFrame(); sep2.setFixedHeight(1); sep2.setStyleSheet("background:#202a45;"); side.addWidget(sep2)
         hist_label = QLabel("RÉCENT"); hist_label.setObjectName("section"); side.addWidget(hist_label)
@@ -383,6 +422,110 @@ class MainWindow(QMainWindow):
                 self.send_message(); return True
         return super().eventFilter(obj,event)
 
+    def _quantization_from_details(self, details):
+        candidates = []
+        if isinstance(details, dict):
+            candidates += [str(details.get(k, "")) for k in ("quantization_level", "quantization", "format")]
+            detail_block = details.get("details", {}) or {}
+            candidates += [str(detail_block.get(k, "")) for k in ("quantization_level", "format")]
+            modelinfo = details.get("model_info", {}) or {}
+            candidates += [str(v) for k, v in modelinfo.items() if "quantization" in k.lower()]
+        raw = " ".join(candidates).upper()
+        known = ("Q2_K", "Q3_K_S", "Q3_K_M", "Q3_K_L", "Q4_0", "Q4_1", "Q4_K_S", "Q4_K_M", "Q5_0", "Q5_1", "Q5_K_S", "Q5_K_M", "Q6_K", "Q8_0", "IQ1_S", "IQ1_M", "IQ2_XXS", "IQ2_XS", "IQ2_S", "IQ2_M", "IQ3_XXS", "IQ3_XS", "IQ3_S", "IQ3_M", "IQ4_NL", "IQ4_XS", "F16", "BF16", "F32", "TQ1_0", "TQ2_0", "MXFP4", "NVFP4", "FP8", "INT8", "INT4")
+        for item in sorted(known, key=len, reverse=True):
+            if item in raw: return item
+        return "Non communiquée par Ollama"
+
+    def _choose_model(self, question):
+        models = list(getattr(self, "installed_models", []))
+        selected = self.model_combo.currentText()
+        if not self.settings.get("auto_model", True) or not models:
+            return selected, "Sélection manuelle" if not self.settings.get("auto_model", True) else "Modèle choisi dans la liste"
+        profile = self.settings.get("profile", "Équilibré")
+        lower = question.lower()
+        deep = len(question) > 500 or any(x in lower for x in ("analyse en détail", "démontre", "compare", "étape par étape", "approfondis", "raisonne"))
+        simple = len(question) < 140 and not deep and not self.pdf_paths
+        if profile == "Qualité": target = "27b" if deep else "9b"
+        elif profile == "Performance": target = "4b" if simple else "9b"
+        else: target = "27b" if deep else ("4b" if simple else "9b")
+        chosen = next((m for m in models if target in m.lower()), None)
+        if not chosen: chosen = selected if selected in models else models[0]
+        reason = f"Profil {profile} · tâche {'approfondie' if deep else 'simple' if simple else 'standard'}"
+        return chosen, reason
+
+    def open_settings(self):
+        dialog = QDialog(self); dialog.setWindowTitle("Paramètres L-GPT 2.8"); dialog.resize(820, 610)
+        tabs = QTabWidget(dialog); layout = QVBoxLayout(dialog); layout.addWidget(tabs)
+        # Configuration IA
+        ai = QWidget(); form = QFormLayout()
+        profile = QComboBox(); profile.addItems(["Performance", "Équilibré", "Qualité"]); profile.setCurrentText(self.settings.get("profile", "Équilibré"))
+        auto = QCheckBox("Choisir automatiquement le modèle selon la tâche"); auto.setChecked(self.settings.get("auto_model", True))
+        context = QComboBox(); context.addItems(["8192", "16384", "32768", "65536"]); context.setCurrentText(str(self.settings.get("context", 16384)))
+        kv = QComboBox(); kv.addItems(["f16", "q8_0", "q4_0"]); kv.setCurrentText(self.settings.get("kv_cache", "f16"))
+        form.addRow("Profil de performance", profile); form.addRow("Routage", auto); form.addRow("Contexte souhaité", context); form.addRow("Type de cache KV souhaité", kv)
+        note = QLabel("Les paramètres de contexte et de cache sont enregistrés comme préférences. Leur application dépend de la version d’Ollama, du modèle et du backend ; cette version ne force pas les options non vérifiées."); note.setWordWrap(True); note.setObjectName("muted"); form.addRow(note)
+        model_table = QTableWidget(0, 4); model_table.setHorizontalHeaderLabels(["Modèle", "Taille", "Quantification", "Détails"]); model_table.horizontalHeader().setStretchLastSection(True)
+        try:
+            result = ollama.list(); entries = result.get("models", []) if isinstance(result, dict) else getattr(result, "models", [])
+            for entry in entries:
+                get = (lambda k, d=None: entry.get(k,d)) if isinstance(entry,dict) else (lambda k,d=None: getattr(entry,k,d))
+                name = get("model") or get("name") or "?"; size = get("size",0); size_text = f"{size/1e9:.1f} Go" if size else "—"
+                try:
+                    details_raw = ollama.show(name)
+                    details = details_raw if isinstance(details_raw,dict) else {"details":getattr(details_raw,"details",{}) or {}, "model_info":getattr(details_raw,"modelinfo",{}) or {}}
+                    quant = self._quantization_from_details(details)
+                    family = (details.get("details",{}) or {}).get("family", "")
+                    detail_text = family or "Métadonnées Ollama"
+                except Exception: quant, detail_text = "Indisponible", "Détails indisponibles"
+                row = model_table.rowCount(); model_table.insertRow(row)
+                for col,val in enumerate((name,size_text,quant,detail_text)): model_table.setItem(row,col,QTableWidgetItem(str(val)))
+        except Exception:
+            model_table.setRowCount(1); model_table.setItem(0,0,QTableWidgetItem("Ollama indisponible"))
+        ai_layout = QVBoxLayout(); ai_layout.addLayout(form); ai_layout.addWidget(QLabel("Modèles détectés localement")); ai_layout.addWidget(model_table); ai.setLayout(ai_layout)
+        tabs.addTab(ai, "IA et modèles")
+        # Mémoire
+        mem = QWidget(); mem_layout = QVBoxLayout(mem)
+        memory_table = QTableWidget(0,3); memory_table.setHorizontalHeaderLabels(["Catégorie", "Titre", "Contenu"]); memory_table.horizontalHeader().setStretchLastSection(True)
+        def reload_memories():
+            memory_table.setRowCount(0)
+            for mid,cat,title,content,updated in self.store.memories():
+                r=memory_table.rowCount(); memory_table.insertRow(r)
+                for c,v in enumerate((cat,title,content)):
+                    cell=QTableWidgetItem(str(v)); cell.setData(Qt.ItemDataRole.UserRole,mid); memory_table.setItem(r,c,cell)
+        reload_memories(); mem_layout.addWidget(memory_table)
+        mem_actions=QHBoxLayout(); add_mem=QPushButton("Ajouter une mémoire"); edit_mem=QPushButton("Modifier"); del_mem=QPushButton("Supprimer")
+        def edit_memory(existing=None):
+            d=QDialog(dialog); d.setWindowTitle("Mémoire L-GPT"); f=QFormLayout(d)
+            cat=QComboBox(); cat.addItems(["Générale", "Projet"])
+            title=QLineEdit(); content=QPlainTextEdit(); content.setMinimumHeight(120)
+            if existing: cat.setCurrentText(existing[1]); title.setText(existing[2]); content.setPlainText(existing[3])
+            f.addRow("Type",cat); f.addRow("Titre",title); f.addRow("Information",content)
+            buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel); buttons.accepted.connect(d.accept); buttons.rejected.connect(d.reject); f.addRow(buttons)
+            if d.exec() and title.text().strip() and content.toPlainText().strip():
+                self.store.save_memory(cat.currentText(),title.text().strip(),content.toPlainText().strip(),existing[0] if existing else None); reload_memories()
+        add_mem.clicked.connect(lambda: edit_memory())
+        def selected_memory():
+            row=memory_table.currentRow()
+            if row<0: return None
+            item=memory_table.item(row,0); mid=item.data(Qt.ItemDataRole.UserRole)
+            return next((x for x in self.store.memories() if x[0]==mid),None)
+        edit_mem.clicked.connect(lambda: edit_memory(selected_memory()) if selected_memory() else None)
+        def delete_selected_memory():
+            item=selected_memory()
+            if item and QMessageBox.question(dialog,"Supprimer la mémoire",f"Supprimer « {item[2]} » ?")==QMessageBox.StandardButton.Yes:
+                self.store.delete_memory(item[0]); reload_memories()
+        del_mem.clicked.connect(delete_selected_memory)
+        for b in (add_mem,edit_mem,del_mem): mem_actions.addWidget(b)
+        mem_layout.addLayout(mem_actions)
+        mem_hint=QLabel("La mémoire est stockée localement dans conversations.db. Elle est actuellement gérée manuellement : L-GPT ne prétend pas apprendre automatiquement de chaque conversation."); mem_hint.setWordWrap(True); mem_hint.setObjectName("muted"); mem_layout.addWidget(mem_hint)
+        tabs.addTab(mem,"Mémoire")
+        buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel); layout.addWidget(buttons)
+        def save_settings():
+            self.settings={"profile":profile.currentText(),"auto_model":auto.isChecked(),"context":int(context.currentText()),"kv_cache":kv.currentText()}
+            self.store.set_setting("runtime",self.settings); d=dialog; d.accept()
+        buttons.accepted.connect(save_settings); buttons.rejected.connect(dialog.reject)
+        dialog.exec()
+
     def refresh_models(self):
         """Recharge la liste des modèles réellement installés dans le serveur Ollama."""
         try:
@@ -397,6 +540,7 @@ class MainWindow(QMainWindow):
             previous = self.model_combo.currentText()
             self.model_combo.clear()
             self.model_combo.addItems(names or FALLBACK_MODELS)
+            self.installed_models = names
             if previous and self.model_combo.findText(previous) >= 0:
                 self.model_combo.setCurrentText(previous)
             if names:
@@ -407,6 +551,7 @@ class MainWindow(QMainWindow):
         except Exception:
             self.model_combo.clear()
             self.model_combo.addItems(FALLBACK_MODELS)
+            self.installed_models = []
             self.model_hint.setText("Ollama indisponible · modèles par défaut affichés")
             return False
 
@@ -677,7 +822,9 @@ class MainWindow(QMainWindow):
         self.chat_stop_event = Event()
         self.input.setEnabled(False); self.import_button.setEnabled(False)
         self.status.setText("◌  L-GPT RÉFLÉCHIT"); self.status.setObjectName("statusBusy"); self.status.style().unpolish(self.status); self.status.style().polish(self.status)
-        self.chat_thread = QThread(); self.chat_worker = ChatWorker(question,self.chunks or [],self.embeddings or [],list(self.history),self.model_combo.currentText(),self.mode_combo.currentText(),self.chat_stop_event)
+        chosen_model, route_reason = self._choose_model(question)
+        self.model_hint.setText(f"{chosen_model} · {route_reason}")
+        self.chat_thread = QThread(); self.chat_worker = ChatWorker(question,self.chunks or [],self.embeddings or [],list(self.history),chosen_model,self.mode_combo.currentText(),self.chat_stop_event)
         self.chat_worker.moveToThread(self.chat_thread); self.chat_thread.started.connect(self.chat_worker.run)
         self.chat_worker.token.connect(self.on_token); self.chat_worker.finished.connect(self.on_answer_finished); self.chat_worker.failed.connect(self.on_answer_error)
         self.chat_worker.finished.connect(self.chat_thread.quit); self.chat_worker.failed.connect(self.chat_thread.quit)

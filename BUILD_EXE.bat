@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title Construction de L-GPT 2.9.exe
+title Construction de L-GPT 3.0.exe
 
 echo ==========================================
-echo       CONSTRUCTION DE L-GPT 2.9.EXE
+echo       CONSTRUCTION DE L-GPT 3.0.EXE
 echo ==========================================
 
 if not exist ".venv\Scripts\python.exe" (

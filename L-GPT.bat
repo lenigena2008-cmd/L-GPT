@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title L-GPT 2.9 - Demarrage
+title L-GPT 3.0 - Demarrage
 if not exist ".venv\Scripts\pythonw.exe" (
   echo [ERREUR] L'environnement Python de L-GPT est absent.
   echo Lance INSTALLER.bat et attends le message de fin.

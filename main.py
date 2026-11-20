@@ -26,16 +26,31 @@ from PySide6.QtWidgets import (
 from core.pdf_engine import answer_chat, build_indexes, create_summary_pdf
 
 APP_NAME = "L-GPT"
-APP_VERSION = "2.9"
+APP_VERSION = "3.0"
 FALLBACK_MODELS = ["qwen3.8:27b", "qwen3.5:9b", "qwen3.5:4b"]
 EMBEDDING_MODEL_NAMES = {"nomic-embed-text", "nomic-embed-text:latest"}
 
 def data_directory() -> Path:
-    """Dossier de données persistant, indépendant du dossier de l'application."""
-    base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    """Dossier de données utilisateur adapté à Windows, macOS et Linux.
+
+    Le chemin Windows historique est conservé pour retrouver automatiquement
+    les conversations et mémoires des versions précédentes.
+    """
+    if sys.platform == "win32":
+        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support"
+    else:
+        base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
     folder = base / "L-GPT"
     folder.mkdir(parents=True, exist_ok=True)
     return folder
+
+
+def resource_path(relative_path: str) -> Path:
+    """Résout les ressources en mode Python et dans un bundle PyInstaller."""
+    bundle_root = getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)
+    return Path(bundle_root) / relative_path
 
 class ConversationStore:
     """Stockage SQLite local des conversations L-GPT."""
@@ -109,7 +124,7 @@ class ConversationStore:
             db.commit()
 
 STYLE = r"""
-* { font-family: 'Segoe UI'; }
+* { font-family: 'Arial'; }
 QMainWindow, QWidget#root { background: #080b16; color: #edf0ff; }
 QWidget#sidebar { background: #0b1020; border-right: 1px solid #202744; }
 QWidget#mainArea { background: #0a0e1b; }
@@ -226,7 +241,7 @@ class ChatMessageBrowser(QTextBrowser):
         self.setMaximumHeight(16777215)
         self.document().setDocumentMargin(1)
         self.document().setDefaultStyleSheet("""
-            body { color: #e9edff; font-family: 'Segoe UI'; font-size: 14px; line-height: 1.55; }
+            body { color: #e9edff; font-family: 'Arial'; font-size: 14px; line-height: 1.55; }
             p { margin: 5px 0 10px 0; }
             h1, h2, h3 { color: #ffffff; margin-top: 17px; margin-bottom: 8px; }
             h1 { font-size: 23px; } h2 { font-size: 19px; } h3 { font-size: 16px; }
@@ -260,10 +275,11 @@ class ChatMessageBrowser(QTextBrowser):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("L-GPT 2.9 | Assistant IA local")
+        self.setWindowTitle(f"L-GPT {APP_VERSION} | Assistant IA local")
         self.resize(1440, 920)
         self.setMinimumSize(1050, 700)
-        self.setWindowIcon(QIcon(str(Path(__file__).parent / "assets" / "lgpt.ico")))
+        icon_file = "assets/lgpt.png" if sys.platform == "darwin" else "assets/lgpt.ico"
+        self.setWindowIcon(QIcon(str(resource_path(icon_file))))
         self.pdf_path = None
         self.pdf_paths = []
         self.chunks = None
@@ -457,7 +473,7 @@ class MainWindow(QMainWindow):
         return chosen, reason
 
     def open_settings(self):
-        dialog = QDialog(self); dialog.setWindowTitle("Paramètres L-GPT 2.9"); dialog.resize(820, 610)
+        dialog = QDialog(self); dialog.setWindowTitle(f"Paramètres L-GPT {APP_VERSION}"); dialog.resize(820, 610)
         tabs = QTabWidget(dialog); layout = QVBoxLayout(dialog); layout.addWidget(tabs)
         # Configuration IA
         ai = QWidget(); form = QFormLayout()
@@ -945,7 +961,7 @@ def main():
     sys.excepthook = log_exception
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
-    app.setFont(QFont("Segoe UI",10))
+    app.setFont(QFont())
     window = MainWindow(); window.show()
     sys.exit(app.exec())
 

@@ -9,6 +9,7 @@ import re
 from threading import Event
 from pathlib import Path
 from datetime import datetime
+from time import perf_counter
 
 import ollama
 from PySide6.QtCore import Qt, QObject, QThread, Signal, QTimer, QEvent
@@ -25,7 +26,7 @@ from PySide6.QtWidgets import (
 from core.pdf_engine import answer_chat, build_indexes, create_summary_pdf
 
 APP_NAME = "L-GPT"
-APP_VERSION = "2.8"
+APP_VERSION = "2.9"
 FALLBACK_MODELS = ["qwen3.8:27b", "qwen3.5:9b", "qwen3.5:4b"]
 EMBEDDING_MODEL_NAMES = {"nomic-embed-text", "nomic-embed-text:latest"}
 
@@ -188,16 +189,18 @@ class ChatWorker(QObject):
     token = Signal(str)
     finished = Signal(str, object, object, str)
     failed = Signal(str)
-    def __init__(self, question, chunks, embeddings, history, model, mode, stop_event):
+    def __init__(self, question, chunks, embeddings, history, model, mode, stop_event, runtime_options=None, memory_context=""):
         super().__init__()
         self.question, self.chunks = question, chunks
         self.embeddings, self.history, self.model = embeddings, history, model
         self.mode, self.stop_event = mode, stop_event
+        self.runtime_options, self.memory_context = runtime_options or {}, memory_context
     def run(self):
         try:
             response, sources, history, source_mode = answer_chat(
                 self.question, self.chunks, self.embeddings,
-                self.history, self.model, self.mode, self.token.emit, self.stop_event
+                self.history, self.model, self.mode, self.token.emit, self.stop_event,
+                self.runtime_options, self.memory_context
             )
             self.finished.emit(response, sources, history, source_mode)
         except Exception as exc:
@@ -257,7 +260,7 @@ class ChatMessageBrowser(QTextBrowser):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("L-GPT 2.8 | Assistant IA local")
+        self.setWindowTitle("L-GPT 2.9 | Assistant IA local")
         self.resize(1440, 920)
         self.setMinimumSize(1050, 700)
         self.setWindowIcon(QIcon(str(Path(__file__).parent / "assets" / "lgpt.ico")))
@@ -280,7 +283,7 @@ class MainWindow(QMainWindow):
         self.current_title = "Nouvelle conversation"
         self._history_items = {}
         self.setStyleSheet(STYLE)
-        self.settings = self.store.get_setting("runtime", {"profile":"Équilibré", "auto_model":True, "context":16384, "kv_cache":"f16"})
+        self.settings = self.store.get_setting("runtime", {"profile":"Équilibré", "auto_model":True, "context":16384, "kv_cache":"f16", "num_predict":2048})
         self._build_ui()
         self._check_ollama()
         self.reload_conversations()
@@ -454,7 +457,7 @@ class MainWindow(QMainWindow):
         return chosen, reason
 
     def open_settings(self):
-        dialog = QDialog(self); dialog.setWindowTitle("Paramètres L-GPT 2.8"); dialog.resize(820, 610)
+        dialog = QDialog(self); dialog.setWindowTitle("Paramètres L-GPT 2.9"); dialog.resize(820, 610)
         tabs = QTabWidget(dialog); layout = QVBoxLayout(dialog); layout.addWidget(tabs)
         # Configuration IA
         ai = QWidget(); form = QFormLayout()
@@ -462,8 +465,9 @@ class MainWindow(QMainWindow):
         auto = QCheckBox("Choisir automatiquement le modèle selon la tâche"); auto.setChecked(self.settings.get("auto_model", True))
         context = QComboBox(); context.addItems(["8192", "16384", "32768", "65536"]); context.setCurrentText(str(self.settings.get("context", 16384)))
         kv = QComboBox(); kv.addItems(["f16", "q8_0", "q4_0"]); kv.setCurrentText(self.settings.get("kv_cache", "f16"))
-        form.addRow("Profil de performance", profile); form.addRow("Routage", auto); form.addRow("Contexte souhaité", context); form.addRow("Type de cache KV souhaité", kv)
-        note = QLabel("Les paramètres de contexte et de cache sont enregistrés comme préférences. Leur application dépend de la version d’Ollama, du modèle et du backend ; cette version ne force pas les options non vérifiées."); note.setWordWrap(True); note.setObjectName("muted"); form.addRow(note)
+        tokens = QComboBox(); tokens.addItems(["512", "1024", "2048", "4096", "8192"]); tokens.setCurrentText(str(self.settings.get("num_predict", 2048)))
+        form.addRow("Profil de performance", profile); form.addRow("Routage", auto); form.addRow("Contexte (num_ctx)", context); form.addRow("Tokens de sortie maximum", tokens); form.addRow("Préférence cache KV", kv)
+        note = QLabel("Le contexte et la limite de sortie sont appliqués à chaque requête Ollama. Le type de cache KV reste une préférence informative : Ollama le configure au niveau du serveur (OLLAMA_KV_CACHE_TYPE), pas par requête. Flash Attention et les options non prises en charge ne sont pas forcées."); note.setWordWrap(True); note.setObjectName("muted"); form.addRow(note)
         model_table = QTableWidget(0, 4); model_table.setHorizontalHeaderLabels(["Modèle", "Taille", "Quantification", "Détails"]); model_table.horizontalHeader().setStretchLastSection(True)
         try:
             result = ollama.list(); entries = result.get("models", []) if isinstance(result, dict) else getattr(result, "models", [])
@@ -481,7 +485,25 @@ class MainWindow(QMainWindow):
                 for col,val in enumerate((name,size_text,quant,detail_text)): model_table.setItem(row,col,QTableWidgetItem(str(val)))
         except Exception:
             model_table.setRowCount(1); model_table.setItem(0,0,QTableWidgetItem("Ollama indisponible"))
-        ai_layout = QVBoxLayout(); ai_layout.addLayout(form); ai_layout.addWidget(QLabel("Modèles détectés localement")); ai_layout.addWidget(model_table); ai.setLayout(ai_layout)
+        resource_label = QLabel("État des modèles chargés : actualisation…")
+        resource_label.setWordWrap(True); resource_label.setObjectName("muted")
+        try:
+            running = ollama.ps()
+            running_entries = running.get("models", []) if isinstance(running, dict) else getattr(running, "models", [])
+            if running_entries:
+                lines = []
+                for entry in running_entries:
+                    getr = (lambda k, d=None: entry.get(k,d)) if isinstance(entry,dict) else (lambda k,d=None: getattr(entry,k,d))
+                    name = getr("name") or getr("model") or "Modèle"
+                    size = getr("size", 0) or 0
+                    processor = getr("size_vram", 0) or 0
+                    lines.append(f"{name} · {size/1e9:.1f} Go chargés · mémoire GPU rapportée {processor/1e9:.1f} Go")
+                resource_label.setText("Modèles actuellement chargés :\n" + "\n".join(lines))
+            else:
+                resource_label.setText("Aucun modèle actuellement chargé (ollama ps). Les informations RAM/CPU/GPU détaillées ne sont pas exposées de façon uniforme par Ollama.")
+        except Exception as exc:
+            resource_label.setText(f"État des modèles indisponible : {exc}")
+        ai_layout = QVBoxLayout(); ai_layout.addLayout(form); ai_layout.addWidget(QLabel("Modèles détectés localement")); ai_layout.addWidget(model_table); ai_layout.addWidget(resource_label); ai.setLayout(ai_layout)
         tabs.addTab(ai, "IA et modèles")
         # Mémoire
         mem = QWidget(); mem_layout = QVBoxLayout(mem)
@@ -517,11 +539,11 @@ class MainWindow(QMainWindow):
         del_mem.clicked.connect(delete_selected_memory)
         for b in (add_mem,edit_mem,del_mem): mem_actions.addWidget(b)
         mem_layout.addLayout(mem_actions)
-        mem_hint=QLabel("La mémoire est stockée localement dans conversations.db. Elle est actuellement gérée manuellement : L-GPT ne prétend pas apprendre automatiquement de chaque conversation."); mem_hint.setWordWrap(True); mem_hint.setObjectName("muted"); mem_layout.addWidget(mem_hint)
+        mem_hint=QLabel("Les mémoires sont stockées localement et les plus pertinentes sont maintenant retrouvées automatiquement à chaque question. Elles sont ajoutées comme contexte auxiliaire (jamais comme preuve PDF). Vérifie et corrige les souvenirs depuis cet onglet."); mem_hint.setWordWrap(True); mem_hint.setObjectName("muted"); mem_layout.addWidget(mem_hint)
         tabs.addTab(mem,"Mémoire")
         buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel); layout.addWidget(buttons)
         def save_settings():
-            self.settings={"profile":profile.currentText(),"auto_model":auto.isChecked(),"context":int(context.currentText()),"kv_cache":kv.currentText()}
+            self.settings={"profile":profile.currentText(),"auto_model":auto.isChecked(),"context":int(context.currentText()),"kv_cache":kv.currentText(),"num_predict":int(tokens.currentText())}
             self.store.set_setting("runtime",self.settings); d=dialog; d.accept()
         buttons.accepted.connect(save_settings); buttons.rejected.connect(dialog.reject)
         dialog.exec()
@@ -808,6 +830,26 @@ class MainWindow(QMainWindow):
     def scroll_bottom(self):
         bar = self.scroll.verticalScrollBar(); bar.setValue(bar.maximum())
 
+    def _relevant_memory_context(self, question):
+        """Retrouve les souvenirs par recouvrement lexical simple, sans envoyer toute la mémoire."""
+        stopwords = {"avec", "dans", "pour", "mais", "donc", "une", "des", "les", "sur", "que", "qui", "quoi", "comment", "pourquoi", "est", "sont", "aux", "mon", "mes", "ton", "tes", "cette", "cela", "plus", "moins", "faire", "fait", "peux", "peut", "veux", "voudrais"}
+        words = {w for w in re.findall(r"[a-zA-ZÀ-ÿ0-9_-]{3,}", question.lower()) if w not in stopwords}
+        ranked = []
+        for mid, category, title, content, updated in self.store.memories():
+            text = f"{title} {content} {category}"
+            terms = {w for w in re.findall(r"[a-zA-ZÀ-ÿ0-9_-]{3,}", text.lower()) if w not in stopwords}
+            overlap = len(words & terms)
+            # Les projets sont légèrement favorisés lorsqu'un terme du titre correspond.
+            title_terms = {w for w in re.findall(r"[a-zA-ZÀ-ÿ0-9_-]{3,}", title.lower()) if w not in stopwords}
+            score = overlap + (2 if words & title_terms else 0)
+            if score > 0:
+                ranked.append((score, category, title, content))
+        ranked.sort(key=lambda x: x[0], reverse=True)
+        selected = ranked[:5]
+        if not selected:
+            return ""
+        return "\n\n".join(f"[{cat} — {title}]\n{content[:1800]}" for _, cat, title, content in selected)[:6500]
+
     def send_message(self):
         if self.busy: return
         question = self.input.toPlainText().strip()
@@ -823,8 +865,13 @@ class MainWindow(QMainWindow):
         self.input.setEnabled(False); self.import_button.setEnabled(False)
         self.status.setText("◌  L-GPT RÉFLÉCHIT"); self.status.setObjectName("statusBusy"); self.status.style().unpolish(self.status); self.status.style().polish(self.status)
         chosen_model, route_reason = self._choose_model(question)
+        self.generation_started = perf_counter()
         self.model_hint.setText(f"{chosen_model} · {route_reason}")
-        self.chat_thread = QThread(); self.chat_worker = ChatWorker(question,self.chunks or [],self.embeddings or [],list(self.history),chosen_model,self.mode_combo.currentText(),self.chat_stop_event)
+        self.chat_thread = QThread(); runtime_options = {"num_ctx": int(self.settings.get("context", 16384)), "num_predict": int(self.settings.get("num_predict", 2048))}
+        memory_context = self._relevant_memory_context(question)
+        if memory_context:
+            self.model_hint.setText(f"{chosen_model} · {route_reason} · mémoire pertinente injectée")
+        self.chat_worker = ChatWorker(question,self.chunks or [],self.embeddings or [],list(self.history),chosen_model,self.mode_combo.currentText(),self.chat_stop_event,runtime_options,memory_context)
         self.chat_worker.moveToThread(self.chat_thread); self.chat_thread.started.connect(self.chat_worker.run)
         self.chat_worker.token.connect(self.on_token); self.chat_worker.finished.connect(self.on_answer_finished); self.chat_worker.failed.connect(self.on_answer_error)
         self.chat_worker.finished.connect(self.chat_thread.quit); self.chat_worker.failed.connect(self.chat_thread.quit)
@@ -842,7 +889,10 @@ class MainWindow(QMainWindow):
 
     def on_answer_finished(self, response, sources, history, source_mode):
         self.history = history
-        text = response + f"\n\n---\n*Source utilisée : **{source_mode}***"
+        elapsed = max(0.001, perf_counter() - getattr(self, "generation_started", perf_counter()))
+        estimated_tokens = max(1, round(len(response) / 4))
+        speed = estimated_tokens / elapsed
+        text = response + f"\n\n---\n*Source utilisée : **{source_mode}***\n*Temps total : {elapsed:.1f} s · environ {estimated_tokens} tokens · {speed:.1f} tokens/s (estimation à partir du texte)*"
         if sources:
             text += "\n\n---\n\n### Sources du document\n"
             for source in sources:

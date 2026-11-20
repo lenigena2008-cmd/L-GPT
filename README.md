@@ -1,22 +1,18 @@
-# L-GPT 2.8 — Assistant IA local, modèles et mémoire
+# L-GPT 2.9 — Assistant IA local, mémoire contextuelle et contrôle Ollama
 
-L-GPT est un assistant de bureau local pour Windows. Sa mission principale est de lire, comprendre, expliquer et synthétiser des cours au format PDF. Il peut aussi répondre aux questions générales sans document.
+L-GPT est un assistant de bureau local pour Windows. Sa mission principale est de lire, comprendre, expliquer et synthétiser des cours au format PDF. Il peut aussi répondre aux questions générales, sans document.
 
-L'application utilise **Ollama** pour exécuter les modèles de langage sur la machine et **SQLite** pour conserver les conversations, les préférences et les mémoires. Aucun compte cloud n'est requis.
+L'application utilise **Ollama** pour exécuter les modèles sur la machine et **SQLite** pour conserver les conversations, les paramètres et les mémoires. Aucun compte cloud n'est requis.
 
-## Nouveautés de la version 2.8
+## Nouveautés de la version 2.9
 
-- Paramètres IA accessibles depuis la barre latérale.
-- Détection des modèles installés dans Ollama et consultation de leurs métadonnées lorsqu'elles sont disponibles.
-- Affichage de la taille des modèles et de leur quantification lorsque Ollama la communique.
-- Routage automatique simple entre modèles installés, avec choix manuel toujours possible.
-- Trois profils : Performance, Équilibré et Qualité.
-- Préférences de contexte et de cache KV enregistrées dans les paramètres.
-- Espace de mémoire permettant d'ajouter, modifier et supprimer des informations générales ou liées à un projet.
-- Migration SQLite non destructive : les tables des conversations existantes sont conservées et les nouvelles tables sont ajoutées si nécessaire.
-- Documentation et procédures d'installation actualisées.
-
-> Transparence : le routage v2.8 est une heuristique locale fondée sur la longueur et certains indices de complexité de la question, les modèles installés et le profil choisi. Ce n'est pas un benchmark ni un système de mesure parfaite de la difficulté.
+- **Mémoire contextuelle automatique** : L-GPT recherche les mémoires qui semblent pertinentes pour la question et n'injecte qu'une petite sélection dans le contexte du modèle. Il ne transmet pas toute la base de mémoire à chaque requête.
+- **Séparation des sources** : les souvenirs sont un contexte auxiliaire, jamais une preuve issue d'un PDF. Le mode Document reste strictement limité aux passages des documents.
+- **Contexte Ollama appliqué** : le réglage `num_ctx` choisi dans les paramètres est maintenant transmis aux requêtes de conversation.
+- **Limite de génération appliquée** : réglage `num_predict` (nombre maximal de tokens générés) disponible dans les paramètres.
+- **État des modèles chargés** : consultation ponctuelle des informations renvoyées par `ollama ps` dans l'onglet IA et modèles.
+- **Statistiques de réponse** : affichage du temps total et d'une estimation de tokens/s calculée à partir du texte produit. Ce chiffre est indicatif, pas une mesure native exacte du moteur.
+- README et procédures d'installation mis à jour.
 
 ## Les trois modes de réponse
 
@@ -28,15 +24,7 @@ Les réponses indiquent la provenance choisie : Documents, Connaissances ou Docu
 
 ## Gestion des modèles Ollama
 
-Le menu **Paramètres IA et mémoire → IA et modèles** interroge Ollama pour afficher les modèles locaux. L'application tente de récupérer leur taille et leurs métadonnées, notamment la quantification.
-
-Les formats de quantification peuvent notamment appartenir aux familles suivantes :
-
-- K-quants : Q2_K, Q3_K, Q4_K, Q5_K, Q6_K, Q8_0 et variantes.
-- I-quants : IQ1, IQ2, IQ3, IQ4 et variantes.
-- Formats non quantifiés ou autres : F16, BF16, F32, ainsi que certains formats compacts ou spécialisés tels que TQ, MXFP4, NVFP4, FP8 ou INT8.
-
-La liste ci-dessus est un aide-mémoire, **pas une garantie de prise en charge**. L-GPT affiche la quantification fournie par les métadonnées Ollama ; si elle n'est pas disponible, il indique qu'elle n'est pas communiquée. La présence d'un nom de format ne signifie pas que chaque modèle, version d'Ollama ou matériel le prend en charge. L-GPT ne convertit pas les modèles et ne modifie pas automatiquement leurs fichiers.
+Le menu **Paramètres IA et mémoire → IA et modèles** interroge Ollama pour afficher les modèles locaux. L'application tente de récupérer leur taille et leurs métadonnées, notamment la quantification. Elle consulte également `ollama.ps()` pour afficher un instantané des modèles chargés lorsque l'API fournit ces données.
 
 Commandes utiles dans PowerShell :
 
@@ -53,36 +41,49 @@ ollama pull qwen3.5:9b
 ollama pull nomic-embed-text
 ```
 
-Adapte le nom du modèle à celui que tu souhaites réellement installer. `nomic-embed-text` sert à créer les embeddings pour la recherche dans les PDF ; il ne remplace pas un modèle conversationnel.
+`nomic-embed-text` sert à créer les embeddings pour la recherche dans les PDF ; il ne remplace pas un modèle conversationnel.
 
-## Routage automatique et profils
+### Quantification
 
-Le choix manuel reste disponible dans la liste des modèles de la barre latérale. Lorsque le routage automatique est activé, L-GPT essaie de choisir un modèle installé selon le profil et une estimation simple de la tâche :
+Les formats peuvent appartenir à plusieurs familles : K-quants (Q2_K à Q8_0 et variantes), I-quants (IQ1 à IQ4 et variantes), formats non quantifiés (F16, BF16, F32) et formats compacts ou spécialisés (TQ, MXFP4, NVFP4, FP8, INT8, etc.). Cette liste est un aide-mémoire, **pas une garantie de prise en charge**. L-GPT affiche la quantification communiquée par les métadonnées Ollama. Il ne convertit pas les modèles et ne modifie pas leurs fichiers.
 
-- **Performance** : favorise les modèles plus légers.
-- **Équilibré** : compromis entre rapidité et capacité ; profil par défaut.
+### Routage et profils
+
+Le choix manuel reste disponible. Le routage automatique choisit parmi les modèles installés selon le profil et une estimation heuristique de la tâche :
+
+- **Performance** : favorise les modèles légers.
+- **Équilibré** : compromis entre rapidité et capacité.
 - **Qualité** : favorise les modèles plus puissants lorsqu'ils sont installés.
 
-Le routage reconnaît notamment des variantes de modèles contenant `4b`, `9b` ou `27b`. Si aucune correspondance n'est trouvée, il retombe sur le modèle actuellement sélectionné ou sur le premier modèle disponible. Le modèle choisi et la raison simplifiée apparaissent sous la liste des modèles.
+Cette logique ne constitue pas un benchmark et ne mesure pas la qualité réelle d'un modèle. Les performances dépendent du modèle, de sa quantification, du contexte, d'Ollama et du matériel.
 
-Cette logique est volontairement prudente : elle ne mesure pas automatiquement la RAM disponible, la vitesse réelle de génération ou la qualité d'une réponse. Les performances dépendent du modèle, de sa quantification, du contexte, d'Ollama et du matériel.
+## Contexte, génération et cache KV
 
-## Contexte et cache KV
+Dans **Paramètres IA et mémoire → IA et modèles** :
 
-Les préférences de contexte proposées sont 8 192, 16 384, 32 768 et 65 536 tokens. Les choix de cache KV proposés sont f16, q8_0 et q4_0.
+- `num_ctx` : 8 192, 16 384, 32 768 ou 65 536 tokens. La valeur choisie est transmise aux requêtes de conversation via l'option Ollama `num_ctx`.
+- `num_predict` : limite maximale de sortie configurable entre 512 et 8 192 tokens. La valeur est transmise via `num_predict`.
+- Cache KV : f16, q8_0 ou q4_0. Dans cette version, ce choix reste une **préférence informative** ; Ollama configure le type de cache au niveau du serveur, notamment via `OLLAMA_KV_CACHE_TYPE`, et non dans chaque requête. L-GPT ne modifie pas automatiquement les variables d'environnement du système.
 
-**Dans cette version, ces valeurs sont enregistrées comme préférences utilisateur et affichées dans les paramètres. Elles ne sont pas encore injectées automatiquement dans chaque appel Ollama.** Leur application effective dépend du support par la version d'Ollama, le modèle et le backend matériel. Ne considère donc pas la valeur choisie comme la fenêtre réellement active. La fenêtre utilisée par le moteur actuel reste définie dans `core/pdf_engine.py`.
+Une fenêtre de contexte élevée augmente potentiellement la mémoire nécessaire. Commence avec 8K ou 16K si la machine manque de mémoire. Le modèle peut aussi imposer ses propres limites.
 
 ## Mémoire et continuité
 
-Dans l'onglet **Mémoire**, l'utilisateur peut créer, modifier et supprimer :
+L'onglet **Mémoire** permet d'ajouter, modifier et supprimer des mémoires générales ou liées à un projet. Ces données sont stockées localement dans SQLite.
 
-- des mémoires générales ;
-- des mémoires de type projet, pour conserver objectifs, décisions, contraintes ou prochaines étapes.
+À chaque question, L-GPT compare les mots de la question aux titres et contenus des mémoires. Il sélectionne au maximum cinq éléments pertinents, avec une limite de taille, puis les transmet au modèle comme contexte auxiliaire. La recherche est lexicale et légère : elle ne comprend pas parfaitement les synonymes et peut manquer un souvenir formulé autrement. Si aucun souvenir ne correspond, aucun souvenir n'est ajouté.
 
-Ces données sont stockées localement dans la base SQLite de L-GPT. La gestion est **manuelle dans cette version** : L-GPT ne prétend pas extraire automatiquement des souvenirs de chaque conversation et n'injecte pas encore automatiquement les mémoires dans les prompts. Elles constituent un espace persistant que l'utilisateur peut consulter et entretenir.
+Les mémoires ne sont pas des sources documentaires. En mode **Document**, elles ne sont pas injectées dans la réponse. En mode **Connaissances** et **Documents + connaissances**, elles peuvent aider à maintenir le contexte d'un projet ou d'une préférence, sans remplacer les informations du PDF.
 
-Les conversations sont restaurées depuis la base locale. Les chemins des PDF associés sont conservés dans l'historique ; les fichiers eux-mêmes restent à leur emplacement d'origine. Si un PDF a été déplacé ou supprimé, il faudra le retrouver pour pouvoir le réindexer.
+La mémoire n'apprend pas automatiquement de chaque phrase et ne crée pas encore de nouveaux souvenirs toute seule : l'utilisateur garde le contrôle de leur création, modification et suppression.
+
+Les conversations sont restaurées depuis la base locale. Les chemins des PDF associés sont conservés dans l'historique ; les fichiers eux-mêmes restent à leur emplacement d'origine.
+
+## Statistiques et informations matérielles
+
+Après une réponse, L-GPT affiche le temps total et une estimation de tokens/s dérivée de la longueur du texte (approximation d'environ quatre caractères par token). Ce n'est pas la mesure exacte fournie par le moteur d'inférence.
+
+L'onglet IA et modèles affiche un instantané des modèles actuellement chargés via `ollama ps`. Les champs disponibles varient selon la version d'Ollama. Cette version ne fournit pas encore un tableau de bord continu de l'utilisation CPU, RAM système et GPU ; elle n'invente pas les valeurs qui ne sont pas exposées.
 
 ## Installation sous Windows
 
@@ -107,17 +108,15 @@ Les conversations sont restaurées depuis la base locale. Les chemins des PDF as
 
 5. Lancer `L-GPT.bat`.
 
-Le modèle conversationnel peut être remplacé par un autre modèle compatible déjà installé dans Ollama.
-
 ## Utilisation
 
 - Pose directement une question générale, même sans PDF.
 - Utilise **Importer des PDF** pour sélectionner un ou plusieurs cours. Attends la fin de l'indexation avant de poser une question sur leur contenu.
 - Choisis le mode Intelligent, Document ou Connaissances.
-- Choisis manuellement le modèle dans la liste ou configure le routage automatique dans les paramètres.
+- Choisis manuellement le modèle ou active le routage automatique dans les paramètres.
+- Ajuste `num_ctx` et `num_predict` selon les capacités de la machine.
+- Ajoute et corrige les souvenirs dans l'onglet Mémoire ; les plus pertinents sont ensuite retrouvés automatiquement.
 - Utilise **Créer un résumé PDF** pour générer une synthèse des documents importés.
-- Les conversations sont sauvegardées automatiquement et apparaissent dans la liste RÉCENT.
-- Ajoute ou corrige les informations persistantes dans l'onglet Mémoire.
 
 ## Création de l'exécutable
 
@@ -133,7 +132,7 @@ La base de données est enregistrée dans :
 %APPDATA%\L-GPT\conversations.db
 ```
 
-Elle contient les conversations, les paramètres et les mémoires. Les mises à jour de L-GPT ne doivent pas nécessiter la suppression de ce fichier. La version 2.8 ajoute des tables si elles n'existent pas ; elle ne supprime pas les anciennes conversations.
+Elle contient les conversations, les paramètres et les mémoires. Les mises à jour ne nécessitent pas la suppression de ce fichier. La version 2.9 conserve les tables existantes et utilise les tables de mémoire et de paramètres ajoutées dans la version précédente.
 
 Les PDF ne sont pas copiés dans la base : leurs chemins sont mémorisés et les fichiers restent à leur emplacement d'origine. Pense à sauvegarder séparément la base et tes documents importants.
 
@@ -150,16 +149,20 @@ Les PDF ne sont pas copiés dans la base : leurs chemins sont mémorisés et les
 - Télécharge un modèle avec `ollama pull nom-du-modele`.
 - Clique sur le bouton ↻ à côté de la liste des modèles.
 
-**Le modèle est trop lent ou la mémoire manque**
+**Erreur de mémoire ou génération trop lente**
 
-- Essaie un modèle plus petit ou un profil Performance.
-- Réduis la taille de contexte dans les paramètres pour garder une préférence plus basse ; note que son application effective au moteur est encore à venir dans cette version.
-- Ferme les applications lourdes et vérifie les informations d'Ollama avec `ollama ps`.
+- Essaie un modèle plus petit ou le profil Performance.
+- Réduis `num_ctx` à 8 192 ou 16 384 et limite `num_predict`.
+- Ferme les applications lourdes et vérifie `ollama ps`.
+
+**Le cache KV sélectionné ne semble pas changer la mémoire utilisée**
+
+- Le choix f16/q8_0/q4_0 est informatif dans l'interface. Ollama configure le cache au niveau du serveur. Pour le modifier, consulte la documentation de ta version d'Ollama et configure explicitement son environnement avant de démarrer le serveur. L-GPT ne change pas cette configuration automatiquement.
 
 **L'indexation PDF échoue ou ne trouve aucun texte**
 
 - Vérifie que le PDF est lisible et non protégé.
-- Le moteur extrait le texte intégré au PDF. L'OCR des documents scannés n'est pas inclus dans cette version.
+- Le moteur extrait le texte intégré au PDF. L'OCR des documents scannés n'est pas inclus.
 - Vérifie que `nomic-embed-text` est installé et qu'Ollama fonctionne.
 
 **Le lancement échoue**
@@ -174,31 +177,28 @@ Les PDF ne sont pas copiés dans la base : leurs chemins sont mémorisés et les
 L-GPT/
 ├── main.py                 # Interface PySide6, conversations, paramètres et mémoire
 ├── core/
-│   └── pdf_engine.py       # Indexation RAG, réponses et génération PDF
-├── assets/                 # Icônes et ressources visuelles
+│   └── pdf_engine.py       # Indexation RAG, réponses et génération de synthèses PDF
+├── assets/                 # Icônes et ressources graphiques
 ├── requirements.txt        # Dépendances Python
-├── INSTALLER.bat           # Création de l'environnement et installation
-├── L-GPT.bat               # Démarrage de l'application
-├── BUILD_EXE.bat           # Construction avec PyInstaller
-└── README.md               # Documentation
+├── INSTALLER.bat           # Installation de l'environnement
+├── L-GPT.bat               # Lancement de l'application
+└── BUILD_EXE.bat           # Construction de l'exécutable
 ```
 
-## Limites connues de la version 2.8
+## Limites connues de la 2.9
 
-- Windows est la plateforme ciblée et testée par conception ; les versions macOS et mobile sont des évolutions futures.
-- Le routage des modèles est heuristique et ne constitue pas une évaluation automatique de la qualité.
-- Les préférences de contexte/cache sont sauvegardées, mais pas encore appliquées dynamiquement aux appels Ollama.
-- La mémoire est gérée manuellement et n'est pas automatiquement injectée dans les conversations.
-- La mesure détaillée en temps réel de RAM, CPU, GPU, VRAM, tokens/seconde et temps avant premier token n'est pas encore implémentée.
-- L'OCR des PDF scannés et la conversion de quantification ne sont pas inclus.
-- La compatibilité des modèles et des options dépend de la version d'Ollama et du matériel.
+- La pertinence mémoire utilise un recouvrement lexical simple, pas une recherche sémantique dédiée.
+- La création automatique de souvenirs à partir des conversations n'est pas activée.
+- Le cache KV n'est pas configurable par requête ; sa préférence est affichée sans modifier le serveur Ollama.
+- Le moniteur matériel n'est pas continu et dépend des champs renvoyés par `ollama ps`.
+- Les tokens/s affichés sont estimés à partir du texte, pas mesurés directement par les métadonnées d'inférence.
+- L'OCR des PDF scannés n'est pas inclus.
+- La version actuelle cible Windows. Les versions macOS et mobile restent au stade de la feuille de route.
 
-## Feuille de route indicative
+## Feuille de route
 
-- **2.8** : inventaire des modèles, profils et routage de base, préférences IA, mémoire locale manuelle, documentation.
-- **2.9** : application effective et validation des paramètres de contexte/cache, statistiques de génération et surveillance des ressources lorsque disponibles, récupération sélective des mémoires.
-- **3.0** : séparation plus poussée du moteur et de l'interface pour préparer macOS et un client mobile connecté à un serveur L-GPT/Ollama.
-
-## Identité de L-GPT
-
-L-GPT possède une identité fonctionnelle définie par sa mission, ses règles et ses modes de fonctionnement. Cela ne signifie pas qu'il possède une conscience subjective.
+- Améliorer la recherche de souvenirs (sémantique, pondération et pertinence par projet).
+- Extraction contrôlée de souvenirs à partir des conversations, avec validation par l'utilisateur.
+- Mesures natives de génération et tableau de bord matériel plus complet selon les API disponibles.
+- Gestion plus fine des paramètres Ollama et détection des capacités réelles des modèles.
+- Architecture multiplateforme pour macOS et accès mobile à un serveur L-GPT/Ollama.

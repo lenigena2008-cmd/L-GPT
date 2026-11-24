@@ -52,3 +52,4 @@ jobs:
           name: L-GPT-macOS
           path: dist/L-GPT-macOS.zip
           if-no-files-found: error
+

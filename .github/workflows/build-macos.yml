@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   build-macos:
+    # Apple Silicon runner. This matches the macOS runner used for the successful v3.0 build.
     runs-on: macos-15
 
     steps:
@@ -46,10 +47,9 @@ jobs:
           cd dist
           ditto -c -k --sequesterRsrc --keepParent L-GPT.app L-GPT-macOS.zip
 
-      - name: Upload app artifact
+      - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: L-GPT-macOS
           path: dist/L-GPT-macOS.zip
           if-no-files-found: error
-

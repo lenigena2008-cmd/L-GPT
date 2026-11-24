@@ -9,7 +9,7 @@ L'application est écrite en Python et PySide6, utilise Ollama pour les modèles
 ## Nouveautés de la 3.0
 
 - **Fondation multiplateforme :** chemins de données adaptés à Windows, macOS et Linux. Le chemin Windows historique est conservé pour retrouver les bases des versions précédentes.
-- **Préparation macOS :** scripts `INSTALLER.sh`, `L-GPT.command` et `BUILD_MACOS.sh`.
+- **Préparation macOS pour puce apple silicon (M1, M2, M3, M4, M5):** scripts `INSTALLER.sh`, `L-GPT.command` et `BUILD_MACOS.sh`. 
 - **Compilation macOS sur GitHub :** workflow `.github/workflows/build-macos.yml` qui utilise un runner macOS fourni par GitHub pour construire et publier un artefact `.app` compressé. Aucun Mac personnel n'est requis pour lancer cette compilation distante.
 - **Ressources d'application :** résolution des fichiers compatible avec le mode Python et PyInstaller.
 - **Version et documentation :** version 3.0, README actualisé et instructions de publication GitHub.

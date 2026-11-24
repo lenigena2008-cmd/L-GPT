@@ -1,0 +1,48 @@
+name: Build macOS app
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
+      - name: Build macOS application
+        run: |
+          python -m PyInstaller --noconfirm --clean --windowed --onedir \
+            --name "L-GPT" \
+            --add-data "assets:assets" \
+            --collect-all pymupdf \
+            --collect-all ollama \
+            --collect-all reportlab \
+            --hidden-import fitz \
+            --hidden-import numpy \
+            --hidden-import core.pdf_engine \
+            main.py
+      - name: Package app
+        run: |
+          cd dist
+          ditto -c -k --sequesterRsrc --keepParent L-GPT.app L-GPT-macOS.zip
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: L-GPT-macOS
+          path: dist/L-GPT-macOS.zip
+          if-no-files-found: error

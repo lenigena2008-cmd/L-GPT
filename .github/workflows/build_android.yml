@@ -1,5 +1,7 @@
-name: Générer un APK
-on: [push, workflow_dispatch]
+name: Generer APK
+on:
+  push:
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-latest

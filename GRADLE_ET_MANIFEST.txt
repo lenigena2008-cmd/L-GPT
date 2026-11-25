@@ -1,0 +1,27 @@
+=== app/build.gradle.kts : a AJOUTER ===
+
+android {
+    defaultConfig {
+        minSdk = 26                       // (24 minimum pour MediaPipe)
+        ndk { abiFilters += listOf("arm64-v8a") }   // vrai telephone ARM (pas l'emulateur x86)
+    }
+}
+
+dependencies {
+    implementation("com.google.mediapipe:tasks-genai:0.10.24")   // IA sur le telephone
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")      // lecture des PDF
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+}
+
+=== AndroidManifest.xml : a AJOUTER ===
+
+<uses-permission android:name="android.permission.INTERNET" />   <!-- avant <application> -->
+
+<application
+    android:largeHeap="true"
+    android:usesCleartextTraffic="true"      <!-- http://127.0.0.1 via USB -->
+    ... (garde le reste de ton <application>)>
+
+    <uses-native-library android:name="libOpenCL.so" android:required="false" />
+    ... (ton <activity> MainActivity)
+</application>
